@@ -55,6 +55,20 @@ class Feature:
 		hist_DUSG.Draw("same")
 		
 		l.Draw("same")
+	
+	
+	def Print(self):
+		print "*************** " + self.Name_ + " ***************"
+		print "Methematical type: " + self.MathType_
+		print "********************************************"
+	
+	
+	def PrintTex(self):
+		mathtype = "\\real" if self.MathType_ == "R" else "\\integer" 
+		if self.Name_.find("_") != -1: 
+			index = self.Name_.find("_")
+			name = self.Name_[:index] + "\\" + self.Name_[index:]
+		return name + " & " + mathtype + " \\\\"
 		
 
 """
@@ -69,4 +83,10 @@ test.DrawPDF(treename,ROOT.gPad)
 c.cd(2)
 test2.DrawPDF(treename,gPad)
 c.SaveAs("test.png")
+"""
+
+"""
+test = Feature("flightDistance3dVal_0","R")
+test.Print()
+print test.PrintTex()
 """
