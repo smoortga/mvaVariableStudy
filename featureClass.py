@@ -7,6 +7,8 @@ import root_numpy as rootnp
 class Feature:
 	""" This is a class containing feature with their mathematical characterizations and some print options """
 	def __init__(self, name, MathType):
+		assert MathType in ["R","I"], "Invlid Mathtype: " + MathType + ", has to be either R or I"
+		
 		self.MathType_ = MathType
 		self.Name_ = name
 	
@@ -90,3 +92,4 @@ test = Feature("flightDistance3dVal_0","R")
 test.Print()
 print test.PrintTex()
 """
+
