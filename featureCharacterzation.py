@@ -49,6 +49,16 @@ else:
 		y[i] = 1 if (abs(fl) != 4 and abs(fl) != 5) else 0
 
 
+if args.dumpTEX:
+	f = open("./TexTable.tex","w")
+	f.write("\\begin{table}[!h]\n")
+	f.write("\\begin{center}\n")
+	f.write("\\begin{tabularx}{0.9\\textwidth}{|C{5cm} | C{2cm} |} \n")
+	f.write("\\hline \n")
+	f.write("\\Tstrut\\Bstrut \\textbf{Feature name}  &  \\Tstrut\\Bstrut \\Lambda  \\\\ \n")
+	f.write("\\hline \n")
+
+
 for idx,ft in enumerate(features):
 	log.info('Evaluating feature #' + str(idx) + ' --> ' + ft)
 	values = X[:,idx]
@@ -60,16 +70,33 @@ for idx,ft in enumerate(features):
 	for v in values:
 		if v%1!=0:
 			mathtype = 'R'
-	print mathtype
 	
+	minimum = np.percentile(values, 0)
+	maximum = np.percentile(values, 99.99)
+	feat = Feature(ft,minimum, maximum, mathtype)
 	
-	feat = Feature(ft,mathtype)
 	if args.printout: feat.Print()
+	
 	if args.dumpPDF:
 		c = TCanvas("c","c",700,600)
 		feat.DrawPDF(tree,gPad)
 		if not os.path.isdir("./PDFhistos"):
    			os.makedirs("./PDFhistos")
 		c.SaveAs("./PDFhistos/"+ft+".png")
-		del c
 	
+	if args.dumpTEX:
+		f.write(feat.PrintTex())
+		f.write("\n")
+		f.write("\\hline \n")
+		
+		
+
+
+if args.dumpTEX:
+	f.write("\\end{tabularx} \n")
+	f.write("\\caption{Summary of the feature characteristics} \n")
+	f.write("\\label{tab:featurechar} \n")
+	f.write("\\end{center} \n")
+	f.write("\\end{table} \n")
+	f.close()
+		

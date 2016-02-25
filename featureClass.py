@@ -7,20 +7,23 @@ import root_numpy as rootnp
 class Feature:
 	""" This is a class containing feature with their mathematical characterizations and some print options """
 	
-	def __init__(self, name, MathType):
+	def __init__(self, name, minimum, maximum, MathType):
 		assert MathType in ["R","I"], "Invlid Mathtype: " + MathType + ", has to be either R or I"
 		
 		self.MathType_ = MathType
 		self.Name_ = name
+		self.min_ = minimum
+		self.max_ = maximum
 	
 	def DrawPDF(self,tree,pad):
 		ROOT.gStyle.SetOptStat(0)
 		pad.cd()
-		tree.Draw(self.Name_+">>hist_C"+self.Name_,"flavour == 4")
+		nbins = 100 if self.MathType_ == 'R' else (self.max_ - self.min_ +1)
+		tree.Draw(self.Name_+">>hist_C"+self.Name_+"("+str(nbins)+","+str(self.min_)+","+str(self.max_)+")","flavour == 4")
 		hist_C = pad.GetPrimitive("hist_C"+self.Name_)
-		tree.Draw(self.Name_+">>hist_B"+self.Name_,"flavour == 5")
+		tree.Draw(self.Name_+">>hist_B"+self.Name_+"("+str(nbins)+","+str(self.min_)+","+str(self.max_)+")","flavour == 5")
 		hist_B = pad.GetPrimitive("hist_B"+self.Name_)
-		tree.Draw(self.Name_+">>hist_DUSG"+self.Name_,"flavour != 4 && flavour != 5")
+		tree.Draw(self.Name_+">>hist_DUSG"+self.Name_+"("+str(nbins)+","+str(self.min_)+","+str(self.max_)+")","flavour != 4 && flavour != 5")
 		hist_DUSG = pad.GetPrimitive("hist_DUSG"+self.Name_)
 		pad.SetMargin(0.13,0.07,0.13,0.07)
 		pad.SetLogy(1)
@@ -67,11 +70,12 @@ class Feature:
 	
 	
 	def PrintTex(self):
-		mathtype = "\\real" if self.MathType_ == "R" else "\\integer" 
+		mathtype = "\\real" if self.MathType_ == "R" else "\\integer"
+		name = self.Name_ 
 		if self.Name_.find("_") != -1: 
 			index = self.Name_.find("_")
 			name = self.Name_[:index] + "\\" + self.Name_[index:]
-		return name + " & " + mathtype + " \\\\"
+		return name + " & $" + mathtype + "$ \\\\"
 		
 
 """
