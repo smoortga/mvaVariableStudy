@@ -6,6 +6,7 @@ import root_numpy as rootnp
 
 class Feature:
 	""" This is a class containing feature with their mathematical characterizations and some print options """
+	
 	def __init__(self, name, MathType):
 		assert MathType in ["R","I"], "Invlid Mathtype: " + MathType + ", has to be either R or I"
 		
@@ -39,7 +40,7 @@ class Feature:
 		hist_C.SetLineColor(1)
 		hist_C.SetFillColor(kBlue-6)
 		l.AddEntry(hist_C,"C","f")
-		hist_C.Draw()
+		hist_C.Draw("hist")
 		
 		hist_DUSG.Scale(1./hist_DUSG.Integral())
 		hist_DUSG.SetTitle("")
@@ -54,7 +55,7 @@ class Feature:
 		hist_DUSG.SetFillColor(kRed);
    		hist_DUSG.SetFillStyle(3004);
 		l.AddEntry(hist_DUSG,"Light","f")
-		hist_DUSG.Draw("same")
+		hist_DUSG.Draw("same hist")
 		
 		l.Draw("same")
 	
