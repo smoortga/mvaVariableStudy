@@ -124,7 +124,7 @@ if args.dumpTEX:
 	f.write("\\begin{center}\n")
 	f.write("\\begin{tabularx}{0.9\\textwidth}{|C{5cm} | C{2cm} |} \n")
 	f.write("\\hline \n")
-	f.write("\\Tstrut\\Bstrut \\textbf{Feature name}  &  \\Tstrut\\Bstrut \\Lambda  &  \\Tstrut\\Bstrut $\\varnothing^{\\cS}$   &  \\Tstrut\\Bstrut $\\varnothing^{\\cS \\cB}$ \\\\ \n")
+	f.write("\\Tstrut\\Bstrut \\textbf{Feature name}  &  \\Tstrut\\Bstrut \\Lambda  &  \\Tstrut\\Bstrut $\\varnothing^{\\cS}$   &  \\Tstrut\\Bstrut $\\varnothing^{\\cS \\cB}$ &  \\Tstrut\\Bstrut $\\Delta$ \\\\ \n")
 	f.write("\\hline \n")
 
 
@@ -171,10 +171,15 @@ for idx,ft in enumerate(features):
 		defaultFracSB = defaultFracS/defaultFracB
 	
 	
+	#
+	#	spread / variance
+	#
+	varSB = np.var(values[y==1])/np.var(values[y==0])
+	
 	
 	minimum = np.percentile(values, 0)
 	maximum = np.percentile(values, 99.99)
-	feat = Feature(ft,minimum, maximum, signalselection, bckgrselection, mathtype, corrS, corrSB, defaultFracS, defaultFracSB)
+	feat = Feature(ft,minimum, maximum, signalselection, bckgrselection, mathtype, corrS, corrSB, defaultFracS, defaultFracSB, varSB)
 	
 	if args.printout: feat.Print()
 	
