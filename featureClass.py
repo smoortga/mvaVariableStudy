@@ -3,70 +3,77 @@ from ROOT import *
 import numpy as np
 np.set_printoptions(precision=5)
 import root_numpy as rootnp
+from colorama import Fore
 
 class Feature:
 	""" This is a class containing feature with their mathematical characterizations and some print options """
 	
-	def __init__(self, name, minimum, maximum, MathType):
+	def __init__(self, name, minimum, maximum, SignalSelection, BckgrSelection, MathType, corrS, corrSB):
 		assert MathType in ["R","I"], "Invlid Mathtype: " + MathType + ", has to be either R or I"
 		
-		self.MathType_ = MathType
 		self.Name_ = name
 		self.min_ = minimum
 		self.max_ = maximum
+		self.signalselection_ = SignalSelection
+		self.bckgrselection_ = BckgrSelection
+		
+		self.MathType_ = MathType
+		self.corrS_ = corrS
+		self.corrSB_ = corrSB
 	
 	def DrawPDF(self,tree,pad):
 		ROOT.gStyle.SetOptStat(0)
 		pad.cd()
 		nbins = 100 if self.MathType_ == 'R' else (self.max_ - self.min_ +1)
-		tree.Draw(self.Name_+">>hist_C"+self.Name_+"("+str(nbins)+","+str(self.min_)+","+str(self.max_)+")","flavour == 4")
-		hist_C = pad.GetPrimitive("hist_C"+self.Name_)
-		tree.Draw(self.Name_+">>hist_B"+self.Name_+"("+str(nbins)+","+str(self.min_)+","+str(self.max_)+")","flavour == 5")
-		hist_B = pad.GetPrimitive("hist_B"+self.Name_)
-		tree.Draw(self.Name_+">>hist_DUSG"+self.Name_+"("+str(nbins)+","+str(self.min_)+","+str(self.max_)+")","flavour != 4 && flavour != 5")
-		hist_DUSG = pad.GetPrimitive("hist_DUSG"+self.Name_)
+		tree.Draw(self.Name_+">>hist_sig"+self.Name_+"("+str(nbins)+","+str(self.min_)+","+str(self.max_)+")",self.signalselection_)
+		hist_sig = pad.GetPrimitive("hist_sig"+self.Name_)
+		tree.Draw(self.Name_+">>hist_bkg"+self.Name_+"("+str(nbins)+","+str(self.min_)+","+str(self.max_)+")",self.bckgrselection_)
+		hist_bkg = pad.GetPrimitive("hist_bkg"+self.Name_)
 		pad.SetMargin(0.13,0.07,0.13,0.07)
 		pad.SetLogy(1)
 		l = ROOT.TLegend(0.69,0.75,0.89,0.89)
 		SetOwnership( l, 0 )
 		l.SetFillColor(0)
 		
-		hist_C.Scale(1./hist_C.Integral())
-		hist_C.SetTitle("")
-		hist_C.GetYaxis().SetTitle("Normalized number of entries")
-		hist_C.GetYaxis().SetTitleOffset(1.4)
-		hist_C.GetYaxis().SetTitleSize(0.045)
-		hist_C.GetXaxis().SetTitle(self.Name_)
-		hist_C.GetXaxis().SetTitleOffset(1.4)
-		hist_C.GetXaxis().SetTitleSize(0.045)		
-		hist_C.SetLineWidth(2)
-		hist_C.SetLineColor(1)
-		hist_C.SetFillColor(kBlue-6)
-		l.AddEntry(hist_C,"C","f")
-		hist_C.Draw("hist")
+		hist_sig.Scale(1./hist_sig.Integral())
+		hist_sig.SetTitle("")
+		hist_sig.GetYaxis().SetTitle("Normalized number of entries")
+		hist_sig.GetYaxis().SetTitleOffset(1.4)
+		hist_sig.GetYaxis().SetTitleSize(0.045)
+		hist_sig.GetXaxis().SetTitle(self.Name_)
+		hist_sig.GetXaxis().SetTitleOffset(1.4)
+		hist_sig.GetXaxis().SetTitleSize(0.045)		
+		hist_sig.SetLineWidth(2)
+		hist_sig.SetLineColor(1)
+		hist_sig.SetFillColor(kBlue-6)
+		l.AddEntry(hist_sig,"Signal","f")
+		hist_sig.Draw("hist")
 		
-		hist_DUSG.Scale(1./hist_DUSG.Integral())
-		hist_DUSG.SetTitle("")
-		hist_DUSG.GetYaxis().SetTitle("Normalized number of entries")
-		hist_DUSG.GetYaxis().SetTitleOffset(1.4)
-		hist_DUSG.GetYaxis().SetTitleSize(0.045)
-		hist_DUSG.GetXaxis().SetTitle(self.Name_)
-		hist_DUSG.GetXaxis().SetTitleOffset(1.4)
-		hist_DUSG.GetXaxis().SetTitleSize(0.045)		
-		hist_DUSG.SetLineWidth(2)
-		hist_DUSG.SetLineColor(kRed);
-		hist_DUSG.SetFillColor(kRed);
-   		hist_DUSG.SetFillStyle(3004);
-		l.AddEntry(hist_DUSG,"Light","f")
-		hist_DUSG.Draw("same hist")
+		hist_bkg.Scale(1./hist_bkg.Integral())
+		hist_bkg.SetTitle("")
+		hist_bkg.GetYaxis().SetTitle("Normalized number of entries")
+		hist_bkg.GetYaxis().SetTitleOffset(1.4)
+		hist_bkg.GetYaxis().SetTitleSize(0.045)
+		hist_bkg.GetXaxis().SetTitle(self.Name_)
+		hist_bkg.GetXaxis().SetTitleOffset(1.4)
+		hist_bkg.GetXaxis().SetTitleSize(0.045)		
+		hist_bkg.SetLineWidth(2)
+		hist_bkg.SetLineColor(kRed);
+		hist_bkg.SetFillColor(kRed);
+   		hist_bkg.SetFillStyle(3004);
+		l.AddEntry(hist_bkg,"Background","f")
+		hist_bkg.Draw("same hist")
 		
 		l.Draw("same")
 	
 	
 	def Print(self):
-		print "*************** " + self.Name_ + " ***************"
+		print "*************** " + self.Name_ + " ****************************"
 		print "Methematical type: " + self.MathType_
-		print "********************************************"
+		print Fore.RED + "{:<30} {:<20} {:<20}".format('Feature','Corr Sig','Corr Sig/Bkg')
+		for ft,val in self.corrS_.iteritems():
+			print Fore.WHITE + "{:<30} {:<20} {:<20}".format(ft, "%.5f" % round(val,5), "%.5f" % round(self.corrSB_[ft],5))
+		print "*********************************************************"
 	
 	
 	def PrintTex(self):
