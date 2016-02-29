@@ -124,7 +124,7 @@ if args.dumpTEX:
 	f.write("\\begin{center}\n")
 	f.write("\\begin{tabularx}{0.9\\textwidth}{|C{5cm} | C{2cm} |} \n")
 	f.write("\\hline \n")
-	f.write("\\Tstrut\\Bstrut \\textbf{Feature name}  &  \\Tstrut\\Bstrut \\Lambda  \\\\ \n")
+	f.write("\\Tstrut\\Bstrut \\textbf{Feature name}  &  \\Tstrut\\Bstrut \\Lambda  &  \\Tstrut\\Bstrut $\\varnothing^{\\cS}$   &  \\Tstrut\\Bstrut $\\varnothing^{\\cS \\cB}$ \\\\ \n")
 	f.write("\\hline \n")
 
 
@@ -150,10 +150,31 @@ for idx,ft in enumerate(features):
 	for el in corrmat_sig[ft].iteritems():
 		corrS[el[0]] = el[1]
 		corrSB[el[0]] = el[1]/corrmat_bkg[ft][el[0]]
+		
+		
+	#
+	#	Defaults/ empty space
+	#
+	if ft.find("_") != -1:
+		index = ft.find("_")
+		default_value = feature_defaults[ft[:index]]['default']
+	else:
+		default_value = feature_defaults[ft]['default']
+	
+	defaultFracS = float(len([i for i in values[y==1] if abs(i-default_value)<0.00001]))/float(len(values[y==1]))
+	defaultFracB = float(len([i for i in values[y==0] if abs(i-default_value)<0.00001]))/float(len(values[y==0]))
+	if defaultFracS == 0: defaultFracSB = 1
+	elif defaultFracB == 0: 
+		log.info('WARNING: 0 defaults for background! defaultFracSB gets default value -9999')
+		defaultFracSB = -9999
+	else:
+		defaultFracSB = defaultFracS/defaultFracB
+	
+	
 	
 	minimum = np.percentile(values, 0)
 	maximum = np.percentile(values, 99.99)
-	feat = Feature(ft,minimum, maximum, signalselection, bckgrselection, mathtype, corrS, corrSB)
+	feat = Feature(ft,minimum, maximum, signalselection, bckgrselection, mathtype, corrS, corrSB, defaultFracS, defaultFracSB)
 	
 	if args.printout: feat.Print()
 	

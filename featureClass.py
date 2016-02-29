@@ -8,7 +8,7 @@ from colorama import Fore
 class Feature:
 	""" This is a class containing feature with their mathematical characterizations and some print options """
 	
-	def __init__(self, name, minimum, maximum, SignalSelection, BckgrSelection, MathType, corrS, corrSB):
+	def __init__(self, name, minimum, maximum, SignalSelection, BckgrSelection, MathType, corrS, corrSB, defaultFracS, defaultFracSB):
 		assert MathType in ["R","I"], "Invlid Mathtype: " + MathType + ", has to be either R or I"
 		
 		self.Name_ = name
@@ -20,6 +20,8 @@ class Feature:
 		self.MathType_ = MathType
 		self.corrS_ = corrS
 		self.corrSB_ = corrSB
+		self.defS_ = defaultFracS
+		self.defSB_ = defaultFracSB
 	
 	def DrawPDF(self,tree,pad):
 		ROOT.gStyle.SetOptStat(0)
@@ -70,6 +72,8 @@ class Feature:
 	def Print(self):
 		print "*************** " + self.Name_ + " ****************************"
 		print "Methematical type: " + self.MathType_
+		print "Default fraction (Signal): " + str(self.defS_)
+		print "Default fraction (Signal/Background): " + str(self.defSB_)
 		print Fore.RED + "{:<30} {:<20} {:<20}".format('Feature','Corr Sig','Corr Sig/Bkg')
 		for ft,val in self.corrS_.iteritems():
 			print Fore.WHITE + "{:<30} {:<20} {:<20}".format(ft, "%.5f" % round(val,5), "%.5f" % round(self.corrSB_[ft],5))
@@ -82,7 +86,7 @@ class Feature:
 		if self.Name_.find("_") != -1: 
 			index = self.Name_.find("_")
 			name = self.Name_[:index] + "\\" + self.Name_[index:]
-		return name + " & $" + mathtype + "$ \\\\"
+		return name + " & $" + mathtype + "$ & " + str("%.4f" % round(self.defS_,4)) + " & " + str("%.4f" % round(self.defSB_,4)) + " \\\\"
 		
 
 """
