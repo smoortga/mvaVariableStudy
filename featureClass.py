@@ -98,24 +98,3 @@ class Feature:
 			name = self.Name_[:index] + "\\" + self.Name_[index:]
 		return "\\Tstrut\\Bstrut " + name + " & \\Tstrut\\Bstrut $" + mathtype + "$ & \\Tstrut\\Bstrut " + str("%.2f" % round(self.defS_,2)) + " & \\Tstrut\\Bstrut " + str("%.2f" % round(self.defSB_,2)) + " & \\Tstrut\\Bstrut " + str("%.2f" % round(self.varSB_,2)) + " & \\Tstrut\\Bstrut " + str("%i" % self.deltaS_) + " & \\Tstrut\\Bstrut " + str("%i" % self.deltaSB_) + " & \\Tstrut\\Bstrut " + str("%.2f" % round(self.ScoreAnova_,2)) + " & \\Tstrut\\Bstrut " + str("%.2f" % round(self.ScoreChi2_,2)) + " \\\\"
 		
-
-"""
-test = Feature("jetNTracks",'R')
-test2 = Feature("jetPt",'R')
-filename = TFile("./TTjets.root")
-treename = filename.Get("tree")
-c = TCanvas("c","c",1000,600)
-c.Divide(2,1)
-c.cd(1)
-test.DrawPDF(treename,ROOT.gPad)
-c.cd(2)
-test2.DrawPDF(treename,gPad)
-c.SaveAs("test.png")
-"""
-
-"""
-test = Feature("flightDistance3dVal_0","R")
-test.Print()
-print test.PrintTex()
-"""
-
