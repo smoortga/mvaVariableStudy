@@ -69,7 +69,7 @@ parser.add_argument('--verbose', action='store_true')
 parser.add_argument('--signal', default='C', help='signal for training')
 parser.add_argument('--bkg', default='DUSG', help='background for training')
 parser.add_argument('--element_per_sample', type=int, default=None, help='consider only the first ... elements in the sample')
-parser.add_argument('--pickEvery', type=int, default=10, help='pick one element every ...')
+parser.add_argument('--pickEvery', type=int, default=None, help='pick one element every ...')
 
 args = parser.parse_args()
 
