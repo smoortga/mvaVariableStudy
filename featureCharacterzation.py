@@ -69,7 +69,7 @@ parser.add_argument('--verbose', action='store_true')
 parser.add_argument('--signal', default='C', help='signal for training')
 parser.add_argument('--bkg', default='DUSG', help='background for training')
 parser.add_argument('--element_per_sample', type=int, default=None, help='consider only the first ... elements in the sample')
-parser.add_argument('--pickEvery', type=int, default=None, help='pick one element every ...')
+parser.add_argument('--pickEvery', type=int, default=10, help='pick one element every ...')
 
 args = parser.parse_args()
 
@@ -187,8 +187,8 @@ if args.dumpCorrMat:
 		ax.set_xticklabels(labels, minor=False, ha='right', rotation=70)
 		ax.set_yticklabels(labels, minor=False)
         
-	plt.tight_layout()
-
+	fig_sig.tight_layout()
+	fig_bkg.tight_layout()
 
 	log.info("Dumping output in ./Correlation_Matrix_Signal(_Bckgr).png" )
 	fig_sig.savefig("Correlation_Matrix_Signal.png")
