@@ -8,6 +8,7 @@ from ROOT import *
 from argparse import ArgumentParser
 from features import *
 from featureClass import *
+from features import *
 import os
 log = rootpy.log["/featureTypes"]
 log.setLevel(rootpy.log.INFO)
@@ -31,6 +32,7 @@ ScorePercentile_cut = 50
 
 parser = ArgumentParser()
 parser.add_argument('--dumpPDF', action='store_true')
+parser.add_argument('--dumpTypeMat', action='store_true')
 parser.add_argument('--verbose', action='store_true')
 parser.add_argument('--out', default = './Types')
 parser.add_argument('--filename', default = './TTjets.root')
@@ -167,7 +169,8 @@ ROOTtree = File.Get(args.treename)
 
 if not os.path.isdir(args.out):
    	os.makedirs(args.out)
-	
+
+counter=0	
 for ftype, feats in final_featureTypes.items():
 	if not os.path.isdir(args.out+'/'+ftype): os.makedirs(args.out+'/'+ftype)
 	log.info('Processing variable type: ' + ftype + "\t which has " + str(len(feats)) + " Entries...")
@@ -188,10 +191,48 @@ for ftype, feats in final_featureTypes.items():
 			ft.DrawPDF(ROOTtree,gPad)
 		c.cd(len(feats)+1)
 		pt = TPaveText(.05,.1,.95,.8)
+		pt.AddText("#"+str(counter))
 		pt.AddText(Convert(ftype))
 		pt.Draw()
 		c.SaveAs(args.out+'/'+ftype+"/"+ftype+"_PDFs.png")
 		c.SaveAs("./PDFhistos/Types/"+ftype+"_PDFs.pdf")
+	counter=counter+1
+
+
+features = general+vertex+leptons
+if args.dumpTypeMat:
+	f = open("./TypesTable.tex","w")
+	f.write("\\begin{table}[!h]\n")
+	f.write("\\tiny \n")
+	f.write("\\begin{center}\n")
+	f.write("\\begin{tabularx}{\\textwidth}{| X |")
+	for i in range(len(final_featureTypes)): f.write(" C{0.3cm} |")
+	f.write("} \n")
+	f.write("\\hline \n")
+	f.write("\\textbf{Feature} ")
+	for idx,ftype in enumerate(final_featureTypes):
+		f.write("& " + str(idx+1))
+	f.write(" \\\\ \n" )
+	f.write("\\hline \n")
+	f.write("\\hline \n")
+	for ft in features:
+		name = ft 
+		if name.find("_") != -1: 
+			index = name.find("_")
+			name = name[:index] + "\\" + name[index:]
+		f.write(name+" ")
+		for ftype, feats in final_featureTypes.items():
+			if ft in [n.Name_ for n in feats]: f.write("& $\\times$ ")
+			else: f.write("& ")
+		f.write(" \\\\ \n" )
+		f.write("\\hline \n")
+	f.write("\\end{tabularx} \n")
+	f.write("\\caption{Presence of the features in the different categories} \n")
+	f.write("\\label{tab:featureTypePresence} \n")
+	f.write("\\end{center} \n")
+	f.write("\\end{table} \n")
+	f.close()
+			
 
 
 log.info('Done... \t A total of ' + str(len(final_featureTypes)) + ' Feature Types have been processed and written to storage')
