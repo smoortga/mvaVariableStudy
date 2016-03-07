@@ -211,7 +211,7 @@ if args.dumpTypeMat:
 	f.write("\\hline \n")
 	f.write("\\textbf{Feature} ")
 	for idx,ftype in enumerate(final_featureTypes):
-		f.write("& " + str(idx+1))
+		f.write("& " + str(idx))
 	f.write(" \\\\ \n" )
 	f.write("\\hline \n")
 	f.write("\\hline \n")
