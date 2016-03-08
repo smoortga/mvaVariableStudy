@@ -31,13 +31,18 @@ class Feature:
 	def DrawPDF(self,tree,pad):
 		ROOT.gStyle.SetOptStat(0)
 		pad.cd()
+		uppad = TPad("u","u",0.,0.2,1.,1.)
+		downpad = TPad("d","d",0.,0.,1.,0.2)
+		uppad.Draw()
+		downpad.Draw()
+		uppad.cd()
 		nbins = 100 if self.MathType_ == 'R' else (self.max_ - self.min_ +1)
 		tree.Draw(self.Name_+">>hist_sig"+self.Name_+"("+str(nbins)+","+str(self.min_)+","+str(self.max_)+")",self.signalselection_)
 		hist_sig = pad.GetPrimitive("hist_sig"+self.Name_)
 		tree.Draw(self.Name_+">>hist_bkg"+self.Name_+"("+str(nbins)+","+str(self.min_)+","+str(self.max_)+")",self.bckgrselection_)
 		hist_bkg = pad.GetPrimitive("hist_bkg"+self.Name_)
-		pad.SetMargin(0.13,0.07,0.13,0.07)
-		pad.SetLogy(1)
+		gPad.SetMargin(0.13,0.07,0,0.07)
+		uppad.SetLogy(1)
 		l = ROOT.TLegend(0.69,0.75,0.89,0.89)
 		SetOwnership( l, 0 )
 		l.SetFillColor(0)
@@ -54,7 +59,7 @@ class Feature:
 		hist_sig.SetLineColor(1)
 		hist_sig.SetFillColor(kBlue-6)
 		l.AddEntry(hist_sig,"Signal","f")
-		hist_sig.Draw("hist")
+		hist_sig.DrawCopy("hist")
 		
 		hist_bkg.Scale(1./hist_bkg.Integral())
 		hist_bkg.SetTitle("")
@@ -72,7 +77,36 @@ class Feature:
 		hist_bkg.Draw("same hist")
 		
 		l.Draw("same")
-	
+
+		downpad.cd()
+		gPad.SetMargin(0.13,0.07,0.4,0.05)
+		hist_sum = hist_sig.Clone()
+		hist_sum.Add(hist_bkg)
+		hist_sig.Divide(hist_sum)
+		
+		hist_sig.GetYaxis().SetTitle("#frac{S}{S+B}")
+		hist_sig.GetYaxis().SetTitleOffset(0.35)
+		hist_sig.GetYaxis().CenterTitle()
+		hist_sig.GetYaxis().SetTitleSize(0.15)
+		hist_sig.GetYaxis().SetRangeUser(0,1)
+		hist_sig.GetYaxis().SetTickLength(0.01)
+		hist_sig.GetYaxis().SetNdivisions(4)
+		hist_sig.GetYaxis().SetLabelSize(0.13)
+		hist_sig.GetXaxis().SetTitle(self.Name_)
+		hist_sig.GetXaxis().SetTitleOffset(0.8)
+		hist_sig.GetXaxis().SetTitleSize(0.2)	
+		hist_sig.GetXaxis().SetLabelSize(0.15)
+		hist_sig.SetLineWidth(1)
+		
+		hist_sig.Draw("E")
+		
+		line = TLine()
+		line.SetLineStyle(2)
+		line.SetLineColor(4)
+		line.SetLineWidth(1)
+		
+		line.DrawLine(self.min_,0.5,self.max_,0.5)
+		
 	
 	def Print(self):
 		print "*************** " + self.Name_ + " ****************************"
@@ -97,4 +131,4 @@ class Feature:
 			index = self.Name_.find("_")
 			name = self.Name_[:index] + "\\" + self.Name_[index:]
 		return "\\Tstrut\\Bstrut " + name + " & \\Tstrut\\Bstrut $" + mathtype + "$ & \\Tstrut\\Bstrut " + str("%.2f" % round(self.defS_,2)) + " & \\Tstrut\\Bstrut " + str("%.2f" % round(self.defSB_,2)) + " & \\Tstrut\\Bstrut " + str("%.2f" % round(self.varSB_,2)) + " & \\Tstrut\\Bstrut " + str("%i" % self.deltaS_) + " & \\Tstrut\\Bstrut " + str("%i" % self.deltaSB_) + " & \\Tstrut\\Bstrut " + str("%.2f" % round(self.ScoreAnova_,2)) + " & \\Tstrut\\Bstrut " + str("%.2f" % round(self.ScoreChi2_,2)) + " \\\\"
-		
+

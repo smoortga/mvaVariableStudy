@@ -184,7 +184,7 @@ for ftype, feats in final_featureTypes.items():
 	
 	if not os.path.isdir("./PDFhistos/Types/"): os.makedirs("./PDFhistos/Types/")
 	if args.dumpPDF:
-		c = TCanvas("c",ftype,1200,700)
+		c = TCanvas("c",ftype,1200,1000)
 		c.Divide(3,int(math.ceil(float(len(feats)+1)/float(3))))
 		for idx,ft in enumerate(feats):
 			c.cd(idx+1)
@@ -206,12 +206,14 @@ if args.dumpTypeMat:
 	f.write("\\tiny \n")
 	f.write("\\begin{center}\n")
 	f.write("\\begin{tabularx}{\\textwidth}{| X |")
-	for i in range(len(final_featureTypes)): f.write(" C{0.3cm} |")
+	for i in range(len(final_featureTypes)): f.write(" C{0.2cm} |")
+	f.write(" C{0.2cm} |") # for the sum of the row
 	f.write("} \n")
 	f.write("\\hline \n")
 	f.write("\\textbf{Feature} ")
 	for idx,ftype in enumerate(final_featureTypes):
 		f.write("& " + str(idx))
+	f.write("& $\\sum$")
 	f.write(" \\\\ \n" )
 	f.write("\\hline \n")
 	f.write("\\hline \n")
@@ -221,11 +223,21 @@ if args.dumpTypeMat:
 			index = name.find("_")
 			name = name[:index] + "\\" + name[index:]
 		f.write(name+" ")
+		NftInType = 0
 		for ftype, feats in final_featureTypes.items():
-			if ft in [n.Name_ for n in feats]: f.write("& $\\times$ ")
+			if ft in [n.Name_ for n in feats]:
+				f.write("& $\\times$ ")
+				NftInType=NftInType+1
 			else: f.write("& ")
+		f.write("& "+str(NftInType))
 		f.write(" \\\\ \n" )
 		f.write("\\hline \n")
+	f.write("$\\sum$ ")
+	for ftype, feats in final_featureTypes.items():
+		f.write("& "+str(len(feats)))
+	f.write("& ")
+	f.write(" \\\\ \n" )
+	f.write("\\hline \n")
 	f.write("\\end{tabularx} \n")
 	f.write("\\caption{Presence of the features in the different categories} \n")
 	f.write("\\label{tab:featureTypePresence} \n")
@@ -233,6 +245,8 @@ if args.dumpTypeMat:
 	f.write("\\end{table} \n")
 	f.close()
 			
-
+if args.dumpPDF:
+	log.info('Executing Command: gs -dBATCH -dNOPAUSE -q -sDEVICE=pdfwrite -dPDFSETTINGS=/prepress -sOutputFile=./PDFhistos/Types/FeatureTypes_Merged.pdf $(ls ./PDFhistos/Types/*.pdf)')
+	os.system("gs -dBATCH -dNOPAUSE -q -sDEVICE=pdfwrite -dPDFSETTINGS=/prepress -sOutputFile=./PDFhistos/Types/FeatureTypes_Merged.pdf $(ls ./PDFhistos/Types/*.pdf)")
 
 log.info('Done... \t A total of ' + str(len(final_featureTypes)) + ' Feature Types have been processed and written to storage')
