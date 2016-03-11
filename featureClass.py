@@ -8,7 +8,7 @@ from colorama import Fore
 class Feature:
 	""" This is a class containing feature with their mathematical characterizations and some print options """
 	
-	def __init__(self, name, minimum, maximum, SignalSelection, BckgrSelection, MathType, corrS, corrSB, defaultFracS, defaultFracSB, varSB, deltaS, deltaSB, ScoreAnova, ScoreChi2):
+	def __init__(self, name, minimum, maximum, SignalSelection, BckgrSelection, MathType, corrS, corrSB, defaultFracS, defaultFracSB, varSB, kurtS, kurtSB, deltaS, deltaSB, ScoreAnova, ScoreChi2):
 		assert MathType in ["R","I"], "Invlid Mathtype: " + MathType + ", has to be either R or I"
 		
 		self.Name_ = name
@@ -23,6 +23,8 @@ class Feature:
 		self.defS_ = defaultFracS
 		self.defSB_ = defaultFracSB
 		self.varSB_ = varSB
+		self.kurtS_ = kurtS
+		self.kurtSB_ = kurtSB
 		self.deltaS_ = deltaS
 		self.deltaSB_ = deltaSB
 		self.ScoreAnova_ = ScoreAnova
@@ -52,6 +54,7 @@ class Feature:
 		hist_sig.GetYaxis().SetTitle("Normalized number of entries")
 		hist_sig.GetYaxis().SetTitleOffset(1.4)
 		hist_sig.GetYaxis().SetTitleSize(0.045)
+		hist_sig.GetXaxis().SetRangeUser(self.min_,self.max_)
 		hist_sig.GetXaxis().SetTitle(self.Name_)
 		hist_sig.GetXaxis().SetTitleOffset(1.4)
 		hist_sig.GetXaxis().SetTitleSize(0.045)		
@@ -66,6 +69,7 @@ class Feature:
 		hist_bkg.GetYaxis().SetTitle("Normalized number of entries")
 		hist_bkg.GetYaxis().SetTitleOffset(1.4)
 		hist_bkg.GetYaxis().SetTitleSize(0.045)
+		hist_bkg.GetXaxis().SetRangeUser(self.min_,self.max_)
 		hist_bkg.GetXaxis().SetTitle(self.Name_)
 		hist_bkg.GetXaxis().SetTitleOffset(1.4)
 		hist_bkg.GetXaxis().SetTitleSize(0.045)		
@@ -114,6 +118,8 @@ class Feature:
 		print "Default fraction (Signal): " + str(self.defS_)
 		print "Default fraction (Signal/Background): " + str(self.defSB_)
 		print "Var[Signal]/Var[Bkgr]: " + str(self.varSB_)
+		print "Kurtosis[Signal]: " + str(self.kurtS_)
+		print "Kurt[Signal]/Kurt[Bkgr]: " + str(self.kurtSB_)
 		print "Rising/Falling alternation (Signal): " + str(self.deltaS_)
 		print "Rising/Falling alternation (Signal/Background): " + str(self.deltaSB_)
 		print "ANOVA variable ranking score (%): " + str(self.ScoreAnova_)
@@ -130,5 +136,5 @@ class Feature:
 		if self.Name_.find("_") != -1: 
 			index = self.Name_.find("_")
 			name = self.Name_[:index] + "\\" + self.Name_[index:]
-		return "\\Tstrut\\Bstrut " + name + " & \\Tstrut\\Bstrut $" + mathtype + "$ & \\Tstrut\\Bstrut " + str("%.2f" % round(self.defS_,2)) + " & \\Tstrut\\Bstrut " + str("%.2f" % round(self.defSB_,2)) + " & \\Tstrut\\Bstrut " + str("%.2f" % round(self.varSB_,2)) + " & \\Tstrut\\Bstrut " + str("%i" % self.deltaS_) + " & \\Tstrut\\Bstrut " + str("%i" % self.deltaSB_) + " & \\Tstrut\\Bstrut " + str("%.2f" % round(self.ScoreAnova_,2)) + " & \\Tstrut\\Bstrut " + str("%.2f" % round(self.ScoreChi2_,2)) + " \\\\"
+		return "\\Tstrut\\Bstrut " + name + " & \\Tstrut\\Bstrut $" + mathtype + "$ & \\Tstrut\\Bstrut " + str("%.2f" % round(self.defS_,2)) + " & \\Tstrut\\Bstrut " + str("%.2f" % round(self.defSB_,2)) + " & \\Tstrut\\Bstrut " + str("%.2f" % round(self.varSB_,2)) + " & \\Tstrut\\Bstrut " + str("%.2f" % round(self.kurtS_,2)) + " & \\Tstrut\\Bstrut " + str("%.2f" % round(self.kurtSB_,2)) + " & \\Tstrut\\Bstrut " + str("%i" % self.deltaS_) + " & \\Tstrut\\Bstrut " + str("%i" % self.deltaSB_) + " & \\Tstrut\\Bstrut " + str("%.2f" % round(self.ScoreAnova_,2)) + " & \\Tstrut\\Bstrut " + str("%.2f" % round(self.ScoreChi2_,2)) + " \\\\"
 

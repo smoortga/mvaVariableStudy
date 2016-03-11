@@ -4,8 +4,8 @@ central place to list the features to be used in training
 
 general = [
   #"flavour",
-  "vertexCategory",
-  "vertexLeptonCategory",
+  #"vertexCategory",
+  #"vertexLeptonCategory",
   "jetPt",
   #"trackJetPt",
   "jetEta",
@@ -53,10 +53,10 @@ vertex = [
 
 leptons = [
   "leptonPtRel_0",#"leptonPtRel_1",#"leptonPtRel_2",
-  "leptonSip3d_0",#"leptonSip3d_1",#"leptonSip3d_2",
+  #"leptonSip3d_0",#"leptonSip3d_1",#"leptonSip3d_2",
   "leptonDeltaR_0",#"leptonDeltaR_1",#"leptonDeltaR_2",
-  "leptonRatioRel_0",#"leptonRatioRel_1",#"leptonRatioRel_2",
-  "leptonEtaRel_0",#"leptonEtaRel_1",#"leptonEtaRel_2",
+  #"leptonRatioRel_0",#"leptonRatioRel_1",#"leptonRatioRel_2",
+  #"leptonEtaRel_0",#"leptonEtaRel_1",#"leptonEtaRel_2",
   "leptonRatio_0",#"leptonRatio_1",#"leptonRatio_2",
   ]
   

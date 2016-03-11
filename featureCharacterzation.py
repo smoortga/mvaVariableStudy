@@ -3,6 +3,7 @@ import ROOT
 from ROOT import *
 import rootpy
 import numpy as np
+import scipy.stats as scpstats
 np.set_printoptions(precision=5)
 import root_numpy as rootnp
 import matplotlib.pyplot as plt
@@ -199,13 +200,13 @@ if args.dumpCorrMat:
 
 
 if args.dumpTEX:
-	f = open("./TexTable.tex","w")
+	f = open("./CharactericsTable.tex","w")
 	f.write("\\begin{table}[!h]\n")
 	f.write("\\scriptsize \n")
 	f.write("\\begin{center}\n")
-	f.write("\\begin{tabularx}{\\textwidth}{| X | C{1cm} | C{1cm} | C{1cm} | C{1cm} | C{1cm} | C{1cm} | C{1cm} | C{1cm} |} \n")
+	f.write("\\begin{tabularx}{\\textwidth}{| X | C{0.8cm} | C{0.8cm} | C{0.8cm} | C{0.8cm} | C{0.8cm} | C{0.8cm} | C{0.8cm} | C{0.8cm} | C{0.8cm} | C{0.8cm} |} \n")
 	f.write("\\hline \n")
-	f.write("\\Tstrut\\Bstrut \\textbf{Feature name}  &  \\Tstrut\\Bstrut $\\Lambda$  &  \\Tstrut\\Bstrut $\\varnothing^{\\cS}$   &  \\Tstrut\\Bstrut $\\varnothing^{\\cS \\cB}$ &  \\Tstrut\\Bstrut $\\Delta$ &  \\Tstrut\\Bstrut $\\partial_{\\cS}$ &  \\Tstrut\\Bstrut $\\partial_{\\cS \\cB}$ & \\Tstrut\\Bstrut $\\cR_{A}$ & \\Tstrut\\Bstrut $\\cR_{\\chi^2}$ \\\\ \n")
+	f.write("\\Tstrut\\Bstrut \\textbf{Feature name}  &  \\Tstrut\\Bstrut $\\Lambda$  &  \\Tstrut\\Bstrut $\\varnothing^{\\cS}$   &  \\Tstrut\\Bstrut $\\varnothing^{\\cS \\cB}$ &  \\Tstrut\\Bstrut $\\Delta$  &  \\Tstrut\\Bstrut $\\kappa_{\\cS}$  &  \\Tstrut\\Bstrut $\\kappa_{\\cS \\cB}$  &  \\Tstrut\\Bstrut $\\partial_{\\cS}$ &  \\Tstrut\\Bstrut $\\partial_{\\cS \\cB}$ & \\Tstrut\\Bstrut $\\cR_{A}$ & \\Tstrut\\Bstrut $\\cR_{\\chi^2}$ \\\\ \n")
 	f.write("\\hline \n")
 	f.write("\\hline \n")
 
@@ -215,7 +216,7 @@ for idx,ft in enumerate(features):
 	log.info('Evaluating feature #' + str(idx) + ' --> ' + ft)
 	values = X[:,idx]
 	minimum = np.percentile(values, 0)
-	maximum = np.percentile(values, 99.99)
+	maximum = np.percentile(values, 99.5)
 	
 	#
 	#	MathType
@@ -258,7 +259,14 @@ for idx,ft in enumerate(features):
 	#
 	#	spread / variance
 	#
-	varSB = np.var(values[y==1])/np.var(values[y==0])
+	varSB = np.var([i for i in values[y==1] if abs(i-default_value)>0.01])/np.var([i for i in values[y==0] if abs(i-default_value)>0.01])
+	
+	
+	#
+	#	Kurtosis
+	#
+	kurtS = scpstats.kurtosis([i for i in values[y==1] if abs(i-default_value)>0.01 and i > minimum and i < maximum])
+	kurtSB = scpstats.kurtosis([i for i in values[y==1] if abs(i-default_value)>0.01 and i > minimum and i < maximum])/scpstats.kurtosis([i for i in values[y==0] if abs(i-default_value)>0.01 and i > minimum and i < maximum])
 	
 	
 	#
@@ -282,7 +290,7 @@ for idx,ft in enumerate(features):
 	ScoreChi2 = 100*chi2_scores[idx][1]/sum([chi2_scores[i][1] for i in range(len(chi2_scores))])
 	
 
-	feat = Feature(ft,minimum, maximum, signalselection, bckgrselection, mathtype, corrS, corrSB, defaultFracS, defaultFracSB, varSB, deltaS, deltaSB, ScoreAnova, ScoreChi2)
+	feat = Feature(ft,minimum, maximum, signalselection, bckgrselection, mathtype, corrS, corrSB, defaultFracS, defaultFracSB, varSB, kurtS, kurtSB, deltaS, deltaSB, ScoreAnova, ScoreChi2)
 	
 	if args.verbose: feat.Print()
 	
