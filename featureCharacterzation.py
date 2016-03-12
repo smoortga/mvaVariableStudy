@@ -67,12 +67,15 @@ parser.add_argument('--dumpPDF', action='store_true')
 parser.add_argument('--dumpTEX', action='store_true')
 parser.add_argument('--dumpCorrMat', action='store_true')
 parser.add_argument('--verbose', action='store_true')
+parser.add_argument('--batch', action='store_true')
 parser.add_argument('--signal', default='C', help='signal for training')
 parser.add_argument('--bkg', default='DUSG', help='background for training')
 parser.add_argument('--element_per_sample', type=int, default=None, help='consider only the first ... elements in the sample')
 parser.add_argument('--pickEvery', type=int, default=10, help='pick one element every ...')
 
 args = parser.parse_args()
+
+if args.batch: ROOT.gROOT.SetBatch(True)
 
 features = general+vertex+leptons
 
@@ -295,7 +298,8 @@ for idx,ft in enumerate(features):
 	if args.verbose: feat.Print()
 	
 	if args.dumpPDF:
-		c = TCanvas("c","c",700,600)
+		if args.batch: c = TCanvas("c","c",1400,1100)
+		else: c = TCanvas("c","c",700,600)
 		feat.DrawPDF(tree,gPad)
 		if not os.path.isdir("./PDFhistos"):
    			os.makedirs("./PDFhistos")

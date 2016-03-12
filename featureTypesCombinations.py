@@ -34,16 +34,14 @@ parser = ArgumentParser()
 parser.add_argument('--dumpPDF', action='store_true')
 parser.add_argument('--dumpTypeMat', action='store_true')
 parser.add_argument('--verbose', action='store_true')
-parser.add_argument('--batch', action='store_true')
 parser.add_argument('--out', default = './Types')
 parser.add_argument('--filename', default = './TTjets.root')
 parser.add_argument('--treename', default = 'tree')
 parser.add_argument('--element_per_sample', type=int, default=None, help='consider only the first ... elements in the sample')
 parser.add_argument('--pickEvery', type=int, default=None, help='pick one element every ...')
+parser.add_argument('--NShuffle', type=int, default=5, help='Shuffle to form the types')
 
 args = parser.parse_args()
-
-if args.batch: ROOT.gROOT.SetBatch(True)
 
 #
 #
@@ -99,76 +97,61 @@ def missingFeatures(typesdict):
 		for ft in value:
 			if ft.Name_ not in PresentFeatureNames: PresentFeatureNames.append(ft.Name_)
 	return [f for f in AllFeatureNames if f not in PresentFeatureNames]
-	
-	
-def CalcWeighedNFeatures(feats):
-	wsum = float(0)
-	for idx, i in enumerate(feats):
-		for jdx, j in enumerate(feats):
-			wsum = wsum + (1-abs(i.corrS_[j.Name_]))
-	wsum = wsum/2.
-	return wsum
 
 def Convert(ftype):
 	out = ''
 	splitted = ftype.split('_')
 	for el in splitted:
-		if el == "defS+"+str(defS_cut): out = out + '#splitline{#otimes^{S}#geq'+str(defS_cut) + '}{Large default fraction}'
-		elif el == "defS-"+str(defS_cut): out = out + '#splitline{#otimes^{S}<'+str(defS_cut) + '}{Small default fraction}'
-		#elif el == "defSB"+str(defSB_cut): out = out + '#otimes^{SB}='+str(defSB_cut) + ', '
-		#elif el == "defSBNot"+str(defSB_cut): out = out + '#otimes^{SB}#neq'+str(defSB_cut) + ', '
-		#elif el == "R":out = out + 'R, '
+		if el == "defS+"+str(defS_cut): out = out + '#otimes^{S}#geq'+str(defS_cut) + ', '
+		elif el == "defS-"+str(defS_cut): out = out + '#otimes^{S}<'+str(defS_cut) + ', '
+		elif el == "defSB"+str(defSB_cut): out = out + '#otimes^{SB}='+str(defSB_cut) + ', '
+		elif el == "defSBNot"+str(defSB_cut): out = out + '#otimes^{SB}#neq'+str(defSB_cut) + ', '
+		elif el == "R":out = out + 'R, '
 		elif el == "I":out = out + 'Z, '
-		elif el == "varSBTop": out = out + '#splitline{|1-#Delta| Top10}{Different Variance for S and B}'
-		elif el == "varSBBottom": out = out + '#splitline{|1-#Delta| Bottom10}{Same Variance for S and B}'
-		elif el == "kurtSTop": out = out + '#splitline{#kappa_{S} Top10}{Peaked and/or long tails}'
-		elif el == "kurtSBottom": out = out + '#splitline{#kappa_{S} Bottom10}{Not Peaked and/or short tails}'
-		elif el == "kurtSBTop": out = out + '#splitline{|1-#kappa_{SB}| Top10}{Different kurtosis S and B}'
-		elif el == "kurtSBBottom": out = out + '#splitline{|1-#kappa_{SB}| Bottom10}{Same kurtosis S and B}'
-		#elif el == "deltaS"+str(deltaS_cut[0]): out = out + '#partial_{S}='+str(deltaS_cut[0]) + ', '
-		#elif el == "deltaS"+str(deltaS_cut[1]): out = out + '#partial_{S}='+str(deltaS_cut[1]) + ', '
-		#elif el == "deltaSNot"+str(deltaS_cut[0])+str(deltaS_cut[1]): out = out + '#partial_{S}#neq'+str(deltaS_cut[0])+' or '+str(deltaS_cut[1]) + ', '
-		#elif el == "deltaSB"+str(deltaSB_cut): out = out + '#partial_{SB}='+str(deltaSB_cut) + ', '
-		#elif el == "deltaSBNot"+str(deltaSB_cut): out = out + '#partial_{SB}#neq'+str(deltaSB_cut) + ', '
-		elif el == "SATop": out = out + '#splitline{#Rgothic_{A} Top10}{High Discrimination}'
-		elif el == "SABottom": out = out + '#splitline{#Rgothic_{A} Bottom10}{Poor Discrimination}'
-		elif el == "Chi2Top": out = out + '#splitline{#Rgothic_{#chi^2} Top10}{High Discrimination}'
-		elif el == "Chi2Bottom": out = out + '#splitline{#Rgothic_{#chi^2} Bottom10}{Poor Discrimination}'
+		elif el == "varSBin": out = out + '#Delta #in ['+str(varSB_cut[0])+','+str(varSB_cut[1])+'], '
+		elif el == "deltaS"+str(deltaS_cut[0]): out = out + '#partial_{S}='+str(deltaS_cut[0]) + ', '
+		elif el == "deltaS"+str(deltaS_cut[1]): out = out + '#partial_{S}='+str(deltaS_cut[1]) + ', '
+		elif el == "deltaSNot"+str(deltaS_cut[0])+str(deltaS_cut[1]): out = out + '#partial_{S}#neq'+str(deltaS_cut[0])+' or '+str(deltaS_cut[1]) + ', '
+		elif el == "deltaSB"+str(deltaSB_cut): out = out + '#partial_{SB}='+str(deltaSB_cut) + ', '
+		elif el == "deltaSBNot"+str(deltaSB_cut): out = out + '#partial_{SB}#neq'+str(deltaSB_cut) + ', '
+		elif el == "SA"+str(ScorePercentile_cut)+"+Perc": out = out + '#Rgothic_{A} #in +'+str(ScorePercentile_cut)+'%, '
+		elif el == "SA"+str(ScorePercentile_cut)+"-Perc": out = out + '#Rgothic_{A} #in -'+str(ScorePercentile_cut)+'%, '
+		elif el == "SChi"+str(ScorePercentile_cut)+"+Perc": out = out + '#Rgothic_{#chi^{2}} #in +'+str(ScorePercentile_cut)+'%, '
+		elif el == "SChi"+str(ScorePercentile_cut)+"-Perc": out = out + '#Rgothic_{#chi^{2}} #in -'+str(ScorePercentile_cut)+'%, '
 	return out
 	
 
-
-final_featureTypes = {}
-
-MathType = {"I":[f for f in features if f.MathType_ == "I"]} # "R":[f for f in features if f.MathType_ == "R"],
-final_featureTypes.update(MathType)
+MathType = {"R":[f for f in features if f.MathType_ == "R"], "I":[f for f in features if f.MathType_ == "I"]}
 
 defS = {"defS+"+str(defS_cut):[f for f in features if f.defS_ >= defS_cut],"defS-"+str(defS_cut):[f for f in features if f.defS_ < defS_cut]}
-final_featureTypes.update(defS)
 
-#defSB = {"defSB"+str(defSB_cut):[f for f in features if f.defSB_ == defSB_cut], "defSBNot"+str(defSB_cut):[f for f in features if f.defSB_ != defSB_cut]}
+defSB = {"defSB"+str(defSB_cut):[f for f in features if f.defSB_ == defSB_cut], "defSBNot"+str(defSB_cut):[f for f in features if f.defSB_ != defSB_cut]}
 
-#varSB = {"varSBTop":sorted(features, key=lambda ft: abs(1-ft.varSB_))[-10:], "varSBBottom":sorted(features, key=lambda ft: abs(1-ft.varSB_))[0:10]}
-#final_featureTypes.update(varSB)
+varSB = {"varSBin":[f for f in features if varSB_cut[0] <= f.varSB_ <= varSB_cut[1]], "varSBNotin":[f for f in features if not varSB_cut[0] <= f.varSB_ <= varSB_cut[1]]}
 
-#deltaS = {"deltaS"+str(deltaS_cut[0]):[f for f in features if f.deltaS_ == deltaS_cut[0]], "deltaS"+str(deltaS_cut[1]):[f for f in features if f.deltaS_ == deltaS_cut[1]], "deltaSNot"+str(deltaS_cut[0])+str(deltaS_cut[1]):[f for f in features if f.deltaS_ != deltaS_cut[0] and f.deltaS_ != deltaS_cut[1]]}
+deltaS = {"deltaS"+str(deltaS_cut[0]):[f for f in features if f.deltaS_ == deltaS_cut[0]], "deltaS"+str(deltaS_cut[1]):[f for f in features if f.deltaS_ == deltaS_cut[1]], "deltaSNot"+str(deltaS_cut[0])+str(deltaS_cut[1]):[f for f in features if f.deltaS_ != deltaS_cut[0] and f.deltaS_ != deltaS_cut[1]]}
 
-#deltaSB = {"deltaSB"+str(deltaSB_cut):[f for f in features if f.deltaSB_ == deltaSB_cut],"deltaSBNot"+str(deltaSB_cut):[f for f in features if f.deltaSB_ != deltaSB_cut] }
+deltaSB = {"deltaSB"+str(deltaSB_cut):[f for f in features if f.deltaSB_ == deltaSB_cut],"deltaSBNot"+str(deltaSB_cut):[f for f in features if f.deltaSB_ != deltaSB_cut] }
 
-kurtS = {"kurtSTop":sorted(features, key=lambda ft: ft.kurtS_)[-10:],"kurtSBottom":sorted(features, key=lambda ft: ft.kurtS_)[0:10]}
-final_featureTypes.update(kurtS)
+ScoreAnova = {"SA"+str(ScorePercentile_cut)+"+Perc":[f for f in features if f.ScoreAnova_ >= np.percentile([features[i].ScoreAnova_ for i in range(len(features))],ScorePercentile_cut)], "SA"+str(ScorePercentile_cut)+"-Perc":[f for f in features if f.ScoreAnova_ < np.percentile([features[i].ScoreAnova_ for i in range(len(features))],ScorePercentile_cut)]}
 
-#kurtSB = {"kurtSBTop":sorted(features, key=lambda ft: abs(1-ft.kurtSB_))[-10:],"kurtSBBottom":sorted(features, key=lambda ft: abs(1-ft.kurtSB_))[0:10]}
-#final_featureTypes.update(kurtSB)
+ScoreChi2 = {"SChi"+str(ScorePercentile_cut)+"+Perc":[f for f in features if f.ScoreChi2_ >= np.percentile([features[i].ScoreChi2_ for i in range(len(features))],ScorePercentile_cut)], "SChi"+str(ScorePercentile_cut)+"-Perc":[f for f in features if f.ScoreChi2_ < np.percentile([features[i].ScoreChi2_ for i in range(len(features))],ScorePercentile_cut)]}
 
-ScoreAnova = {"SATop":sorted(features, key=lambda ft: ft.ScoreAnova_)[-10:], "SABottom":sorted(features, key=lambda ft: ft.ScoreAnova_)[0:10]}
-final_featureTypes.update(ScoreAnova)
+featureCharVec = [MathType, defS,defSB,varSB,deltaS,deltaSB,ScoreAnova]#,ScoreChi2]
 
-ScoreChi2 = {"Chi2Top":sorted(features, key=lambda ft: ft.ScoreChi2_)[-10:], "Chi2Bottom":sorted(features, key=lambda ft: ft.ScoreChi2_)[0:10]}
-#final_featureTypes.update(ScoreChi2)
-
-
-#final_featureTypes = RemoveSameTypes(final_featureTypes)
+i = 0
+final_featureTypes = {}
+while i < args.NShuffle:
+	log.info('Shuffeling the subgroups #' + str(i))
+	featureTypes = {}
+	shuffle(featureCharVec)
+	for fchar in featureCharVec:
+		featureTypes = combineTypes(featureTypes,fchar)
+	featureTypes = RemoveSameTypes(featureTypes)
+	for f in featureTypes:
+		final_featureTypes[f] = featureTypes[f]
+	i = i+1
+final_featureTypes = RemoveSameTypes(final_featureTypes)
 
 
 missFeat = missingFeatures(final_featureTypes)
@@ -187,9 +170,7 @@ ROOTtree = File.Get(args.treename)
 if not os.path.isdir(args.out):
    	os.makedirs(args.out)
 
-counter=0
-pt = TPaveText(.01,.01,.99,.99)
-pt.AddText("test")	
+counter=0	
 for ftype, feats in final_featureTypes.items():
 	if not os.path.isdir(args.out+'/'+ftype): os.makedirs(args.out+'/'+ftype)
 	log.info('Processing variable type: ' + ftype + "\t which has " + str(len(feats)) + " Entries...")
@@ -203,14 +184,13 @@ for ftype, feats in final_featureTypes.items():
 	
 	if not os.path.isdir("./PDFhistos/Types/"): os.makedirs("./PDFhistos/Types/")
 	if args.dumpPDF:
-		if args.batch: c = TCanvas(ftype,ftype,2000,1800)
-		else: c = TCanvas(ftype,ftype,1000,700)
+		c = TCanvas("c",ftype,1200,1000)
 		c.Divide(3,int(math.ceil(float(len(feats)+1)/float(3))))
 		for idx,ft in enumerate(feats):
 			c.cd(idx+1)
 			ft.DrawPDF(ROOTtree,gPad)
 		c.cd(len(feats)+1)
-		pt = TPaveText(.01,.01,.99,.99)
+		pt = TPaveText(.05,.1,.95,.8)
 		pt.AddText("#"+str(counter))
 		pt.AddText(Convert(ftype))
 		pt.Draw()
@@ -252,10 +232,9 @@ if args.dumpTypeMat:
 		f.write("& "+str(NftInType))
 		f.write(" \\\\ \n" )
 		f.write("\\hline \n")
-	f.write("$\\sum$ (weighed) ")
+	f.write("$\\sum$ ")
 	for ftype, feats in final_featureTypes.items():
-		WeighedNFeatures = CalcWeighedNFeatures(feats)
-		f.write("& "+str("%.2f" % round(WeighedNFeatures,2)))
+		f.write("& "+str(len(feats)))
 	f.write("& ")
 	f.write(" \\\\ \n" )
 	f.write("\\hline \n")
