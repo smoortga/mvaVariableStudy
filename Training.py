@@ -235,20 +235,20 @@ for idx, ftype in enumerate(os.listdir(args.indir)):
 		
 	
 	
-	if args.verbose:
-		plt.semilogy(gbc_tpr, gbc_fpr,label='GBC c-tagger')
-		plt.semilogy(rf_tpr, rf_fpr,label='RF c-tagger')
-		plt.semilogy(svm_tpr, svm_fpr,label='SVM c-tagger')
-		plt.semilogy(sgd_tpr, sgd_fpr,label='SGD c-tagger')
-		plt.semilogy(knn_tpr, knn_fpr,label='kNN c-tagger')
-		plt.semilogy(nb_tpr, nb_fpr,label='NB c-tagger')
-		plt.semilogy(mlp_tpr, mlp_fpr,label='MLP c-tagger')
-		plt.semilogy([0,0.1,0.2,0.3,0.4,0.5,0.6,0.8,1], [0.00001,0.002,0.01,0.04,0.1,0.2,0.3,0.6,1],label='Current c-tagger')
-		plt.ylabel("Light Efficiency")
-		plt.xlabel("Charm Efficiency")
-		plt.legend(loc='best')
-		plt.grid(True)
-		plt.show()
+	#if args.verbose:
+	#	plt.semilogy(gbc_tpr, gbc_fpr,label='GBC c-tagger')
+	#	plt.semilogy(rf_tpr, rf_fpr,label='RF c-tagger')
+	#	plt.semilogy(svm_tpr, svm_fpr,label='SVM c-tagger')
+	#	plt.semilogy(sgd_tpr, sgd_fpr,label='SGD c-tagger')
+	#	plt.semilogy(knn_tpr, knn_fpr,label='kNN c-tagger')
+	#	plt.semilogy(nb_tpr, nb_fpr,label='NB c-tagger')
+	#	plt.semilogy(mlp_tpr, mlp_fpr,label='MLP c-tagger')
+	#	plt.semilogy([0,0.1,0.2,0.3,0.4,0.5,0.6,0.8,1], [0.00001,0.002,0.01,0.04,0.1,0.2,0.3,0.6,1],label='Current c-tagger')
+	#	plt.ylabel("Light Efficiency")
+	#	plt.xlabel("Charm Efficiency")
+	#	plt.legend(loc='best')
+	#	plt.grid(True)
+	#	plt.show()
 	
 	
 	
