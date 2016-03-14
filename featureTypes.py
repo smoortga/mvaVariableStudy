@@ -106,7 +106,7 @@ def CalcWeighedNFeatures(feats):
 	for idx, i in enumerate(feats):
 		for jdx, j in enumerate(feats):
 			wsum = wsum + (1-abs(i.corrS_[j.Name_]))
-	wsum = wsum/2.
+	wsum = wsum/(2.*len(feats))
 	return wsum
 
 def Convert(ftype):
@@ -139,6 +139,9 @@ def Convert(ftype):
 
 
 final_featureTypes = {}
+
+All = {"All":features}
+final_featureTypes.update(All)
 
 MathType = {"I":[f for f in features if f.MathType_ == "I"]} # "R":[f for f in features if f.MathType_ == "R"],
 final_featureTypes.update(MathType)
