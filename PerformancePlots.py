@@ -110,8 +110,6 @@ for idx, ftype in enumerate(dir_list):
 		tn = [len(disc_b[disc_b<t]) for t in thres]
 		fn = [len(disc_s[disc_s<t]) for t in thres]
 		
-		print tp[10],fp[10],tn[10],fn[10],tp[10] + fp[10] + tn[10] + fn[10], len(disc)
-		
 		#
 		# Area under ROC-curve
 		#
@@ -134,7 +132,7 @@ for idx, ftype in enumerate(dir_list):
 		# Accuracy
 		#
 		Acc = [float(i+j)/float(i+j+k+l) if (i+j+k+l !=0) else 0 for i,j,k,l in zip(tp,tn,fp,fn)]
-		ACC_tmp.append(Acc[idx]) # Accuracy at 20% efficiency
+		ACC_tmp.append(Acc[dx]) # Accuracy at 20% efficiency
 		
 		
 	AUC_scores.append(AUC_tmp)
@@ -157,7 +155,7 @@ makeplot(convert_to_best_worst(PUR_scores),"Purity at 20 percent eff BEST", clf_
 makeplot(ACC_scores,"Accuracy at 20 percent eff", clf_names, type_names)
 makeplot(convert_to_best_worst(ACC_scores),"Accuracy at 20 percent eff BEST", clf_names, type_names)	
 
-if args.verbose: log.info('Executing Command: gs -dBATCH -dNOPAUSE -q -sDEVICE=pdfwrite -dPDFSETTINGS=/prepress -sOutputFile=./PDFhistos/Types/FeatureTypes_Merged.pdf $(ls ./PDFhistos/Types/*.pdf)')
+if args.verbose: log.info('Executing Command: gs -dBATCH -dNOPAUSE -q -sDEVICE=pdfwrite -dPDFSETTINGS=/prepress -sOutputFile=./PerformancePlots/PerformancePlots_Merged.pdf $(ls ./PerformancePlots/*.pdf)')
 if "PerformancePlots_Merged.pdf" in os.listdir("./PerformancePlots"): os.system("rm ./PerformancePlots/PerformancePlots_Merged.pdf")
 os.system("gs -dBATCH -dNOPAUSE -q -sDEVICE=pdfwrite -dPDFSETTINGS=/prepress -sOutputFile=./PerformancePlots/PerformancePlots_Merged.pdf $(ls ./PerformancePlots/*.pdf)")
 
