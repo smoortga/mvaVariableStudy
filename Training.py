@@ -94,7 +94,7 @@ for idx, ftype in enumerate(os.listdir(args.indir)):
 	gbc_disc = gbc_best_clf.predict_proba(X_test)[:,1]
 	gbc_fpr, gbc_tpr, gbc_thresholds = roc_curve(y_test, gbc_disc)
 	
-	Classifiers["GBC"]=(gbc_best_clf,y_test,gbc_disc,gbc_fpr,gbc_tpr)
+	Classifiers["GBC"]=(gbc_best_clf,y_test,gbc_disc,gbc_fpr,gbc_tpr,gbc_thresholds)
 	OutFile.write("GBC: " + str(gbc_best_clf.get_params()) + "\n")
 	
 	
@@ -116,7 +116,7 @@ for idx, ftype in enumerate(os.listdir(args.indir)):
 	rf_disc = rf_best_clf.predict_proba(X_test)[:,1]
 	rf_fpr, rf_tpr, rf_thresholds = roc_curve(y_test, rf_disc)
 	
-	Classifiers["RF"]=(rf_best_clf,y_test,rf_disc,rf_fpr,rf_tpr)
+	Classifiers["RF"]=(rf_best_clf,y_test,rf_disc,rf_fpr,rf_tpr,rf_thresholds)
 	OutFile.write("RF: " + str(rf_best_clf.get_params()) + "\n")
 	
 	
@@ -138,7 +138,7 @@ for idx, ftype in enumerate(os.listdir(args.indir)):
 	sgd_disc = sgd_best_clf.predict_proba(X_test)[:,1]
 	sgd_fpr, sgd_tpr, sgd_thresholds = roc_curve(y_test, sgd_disc)
 	
-	Classifiers["SGD"]=(sgd_best_clf,y_test,sgd_disc,sgd_fpr,sgd_tpr)
+	Classifiers["SGD"]=(sgd_best_clf,y_test,sgd_disc,sgd_fpr,sgd_tpr,sgd_thresholds)
 	OutFile.write("SGD: " + str(sgd_best_clf.get_params()) + "\n")
 	
 	
@@ -160,7 +160,7 @@ for idx, ftype in enumerate(os.listdir(args.indir)):
 	knn_disc = knn_best_clf.predict_proba(X_test)[:,1]
 	knn_fpr, knn_tpr, knn_thresholds = roc_curve(y_test, knn_disc)
 	
-	Classifiers["kNN"]=(knn_best_clf,y_test,knn_disc,knn_fpr,knn_tpr)
+	Classifiers["kNN"]=(knn_best_clf,y_test,knn_disc,knn_fpr,knn_tpr,knn_thresholds)
 	OutFile.write("kNN: " + str(knn_best_clf.get_params()) + "\n")
 	
 	
@@ -179,7 +179,7 @@ for idx, ftype in enumerate(os.listdir(args.indir)):
 	nb_disc = nb_best_clf.predict_proba(X_test)[:,1]
 	nb_fpr, nb_tpr, nb_thresholds = roc_curve(y_test, nb_disc)
 	
-	Classifiers["NB"]=(nb_best_clf,y_test,nb_disc,nb_fpr,nb_tpr)
+	Classifiers["NB"]=(nb_best_clf,y_test,nb_disc,nb_fpr,nb_tpr,nb_thresholds)
 	OutFile.write("NB: " + str(nb_best_clf.get_params()) + "\n")
 	
 	
@@ -201,7 +201,7 @@ for idx, ftype in enumerate(os.listdir(args.indir)):
 	mlp_disc = mlp_best_clf.predict_proba(X_test)[:,1]
 	mlp_fpr, mlp_tpr, mlp_thresholds = roc_curve(y_test, mlp_disc)
 	
-	Classifiers["MLP"]=(mlp_best_clf,y_test,mlp_disc,mlp_fpr,mlp_tpr)
+	Classifiers["MLP"]=(mlp_best_clf,y_test,mlp_disc,mlp_fpr,mlp_tpr,mlp_thresholds)
 	OutFile.write("MLP: " + str(mlp_best_clf.get_params()) + "\n")
 	
 	
@@ -226,7 +226,7 @@ for idx, ftype in enumerate(os.listdir(args.indir)):
 	svm_disc = svm_best_clf.predict_proba(X_test)[:,1]
 	svm_fpr, svm_tpr, svm_thresholds = roc_curve(y_test, svm_disc)
 	
-	Classifiers["SVM"]=(svm_best_clf,y_test,svm_disc,svm_fpr,svm_tpr)
+	Classifiers["SVM"]=(svm_best_clf,y_test,svm_disc,svm_fpr,svm_tpr,svm_thresholds)
 	OutFile.write("SVM: " + str(svm_best_clf.get_params()) + "\n")
 	
 	
