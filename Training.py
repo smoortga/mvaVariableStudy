@@ -250,6 +250,7 @@ for idx, ftype in enumerate(os.listdir(args.indir)):
 		plt.legend(loc='best')
 		plt.grid(True)
 		plt.savefig("%sROCcurves.png" % typedir)
+		plt.clf()
 	
 	
 	
