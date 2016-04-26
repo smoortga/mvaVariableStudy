@@ -502,6 +502,110 @@ All_disc = best_discr['All']
 y_All = y
 All_fpr, All_tpr, All_thresholds = roc_curve(y_All, All_disc)
 
+# Dump final discriminators
+if args.dumpDiscr:
+	log.info('%s dumpDisc = True %s: Drawing discriminator distributions for final comparison!' %(Fore.GREEN,Fore.WHITE))
+	disc_histos_final = {}
+	disc_histos_final['1step'] = (ROOT.TH1F("1step_s",key+"_s",50,0,1),ROOT.TH1F("1step_b",key+"_b",50,0,1)) #(signal,bkg)
+	disc_histos_final['2step'] = (ROOT.TH1F("2step_s",key+"_s",50,0,1),ROOT.TH1F("2step_b",key+"_b",50,0,1)) #(signal,bkg)
+	nen_1step = len(All_disc)
+	nen_2step = len(SuperMVA_disc)
+	for i in range(nen_1step):
+		if y_All[i] == 1: disc_histos_final['1step'][0].Fill(All_disc[i])
+		elif y_All[i] == 0: disc_histos_final['1step'][1].Fill(All_disc[i])
+	for i in range(nen_2step):
+		if y_SuperMVA[i] == 1: disc_histos_final['2step'][0].Fill(SuperMVA_disc[i])
+		elif y_SuperMVA[i] == 0: disc_histos_final['2step'][1].Fill(SuperMVA_disc[i])
+	
+	for key,value in disc_histos_final.iteritems():
+		c = ROOT.TCanvas("c","c",1400,1100)
+		ROOT.gStyle.SetOptStat(0)
+		uppad = ROOT.TPad("u","u",0.,0.2,1.,1.)
+		downpad = ROOT.TPad("d","d",0.,0.,1.,0.2)
+		uppad.Draw()
+		downpad.Draw()
+		uppad.cd()
+		hist_sig = value[0]
+		hist_bkg = value[1]
+		ROOT.gPad.SetMargin(0.13,0.07,0,0.07)
+		uppad.SetLogy(1)
+		l = ROOT.TLegend(0.69,0.75,0.89,0.89)
+		l.SetFillColor(0)
+		
+		hist_sig.Scale(1./hist_sig.Integral())
+		hist_sig.SetTitle("")
+		hist_sig.GetYaxis().SetTitle("Normalized number of entries")
+		hist_sig.GetYaxis().SetTitleOffset(1.4)
+		hist_sig.GetYaxis().SetTitleSize(0.045)
+		hist_sig.GetYaxis().SetRangeUser(0.001,10*hist_sig.GetBinContent(hist_sig.GetMaximumBin()))
+		hist_sig.GetXaxis().SetRangeUser(0,1)
+		hist_sig.GetXaxis().SetTitle("discriminator "+key)
+		hist_sig.GetXaxis().SetTitleOffset(1.4)
+		hist_sig.GetXaxis().SetTitleSize(0.045)		
+		hist_sig.SetLineWidth(2)
+		hist_sig.SetLineColor(1)
+		hist_sig.SetFillColor(ROOT.kBlue-6)
+		l.AddEntry(hist_sig,"Signal","f")
+		hist_sig.DrawCopy("hist")
+		
+		hist_bkg.Scale(1./hist_bkg.Integral())
+		hist_bkg.SetTitle("")
+		hist_bkg.GetYaxis().SetTitle("Normalized number of entries")
+		hist_bkg.GetYaxis().SetTitleOffset(1.4)
+		hist_bkg.GetYaxis().SetTitleSize(0.045)
+		hist_bkg.GetXaxis().SetRangeUser(0,1)
+		hist_bkg.GetXaxis().SetTitle("discriminator "+key)
+		hist_bkg.GetXaxis().SetTitleOffset(1.4)
+		hist_bkg.GetXaxis().SetTitleSize(0.045)		
+		hist_bkg.SetLineWidth(2)
+		hist_bkg.SetLineColor(ROOT.kRed);
+		hist_bkg.SetFillColor(ROOT.kRed);
+   		hist_bkg.SetFillStyle(3004);
+		l.AddEntry(hist_bkg,"Background","f")
+		hist_bkg.Draw("same hist")
+		
+		l.Draw("same")
+		
+		downpad.cd()
+		ROOT.gPad.SetMargin(0.13,0.07,0.4,0.05)
+		hist_sum = hist_sig.Clone()
+		hist_sum.Add(hist_bkg)
+		hist_sig.Divide(hist_sum)
+		
+		hist_sig.GetYaxis().SetTitle("#frac{S}{S+B}")
+		hist_sig.GetYaxis().SetTitleOffset(0.35)
+		hist_sig.GetYaxis().CenterTitle()
+		hist_sig.GetYaxis().SetTitleSize(0.15)
+		hist_sig.GetYaxis().SetRangeUser(0,1)
+		hist_sig.GetYaxis().SetTickLength(0.01)
+		hist_sig.GetYaxis().SetNdivisions(4)
+		hist_sig.GetYaxis().SetLabelSize(0.13)
+		hist_sig.GetXaxis().SetTitle("discriminator "+key)
+		hist_sig.GetXaxis().SetTitleOffset(0.8)
+		hist_sig.GetXaxis().SetTitleSize(0.2)	
+		hist_sig.GetXaxis().SetLabelSize(0.15)
+		hist_sig.SetLineWidth(1)
+		
+		hist_sig.Draw("E")
+		
+		line = ROOT.TLine()
+		line.SetLineStyle(2)
+		line.SetLineColor(4)
+		line.SetLineWidth(1)
+		
+		line.DrawLine(0,0.5,1,0.5)
+		
+		if not os.path.isdir("./SuperMVA/Discr_plots"): os.makedirs("./SuperMVA/Discr_plots")
+		c.SaveAs('./SuperMVA/Discr_plots/discriminator_%s.png' % key)
+		
+		del c
+		del uppad
+		del downpad
+		del l
+		del hist_sig
+		del hist_bkg
+		del line
+
 
 plt.semilogy(All_tpr, All_fpr,label='1-step MVA')
 plt.semilogy(SuperMVA_tpr, SuperMVA_fpr,label='2-step MVA')
