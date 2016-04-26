@@ -158,6 +158,7 @@ nen = len(best_discr['All'])
 for i in range(nen):
 	event = []
 	for key,value in best_discr.iteritems():
+		if key == 'All': continue
 		event.append(value[i])
 	X.append(event)
 
