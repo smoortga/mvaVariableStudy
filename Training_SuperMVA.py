@@ -1,3 +1,4 @@
+import ROOT
 import rootpy
 import os
 import numpy as np
@@ -30,12 +31,15 @@ parser = ArgumentParser()
 
 parser.add_argument('--indir', default = os.getcwd()+'/Types/')
 parser.add_argument('--verbose', action='store_true')
+parser.add_argument('--dumpDiscr', action='store_true')
 parser.add_argument('--FoM', type=str, default = 'AUC', help='Which Figure or Merit (FoM) to use: AUC,PUR,ACC,OOP')
 parser.add_argument('--pickEvery', type=int, default=1, help='pick one element every ...')
 parser.add_argument('--signal', default='C', help='signal for training')
 parser.add_argument('--bkg', default='DUSG', help='background for training')
 
 args = parser.parse_args()
+
+ROOT.gROOT.SetBatch(True)
 
 assert(args.FoM == 'AUC' or args.FoM == 'OOP' or args.FoM == 'ACC' or args.FoM == 'PUR')
 log.info('Using %s %s %s as a Figure of Merit  to select best classifiers' %(Fore.RED,args.FoM,Fore.WHITE))
@@ -153,23 +157,124 @@ for idx, ftype in enumerate(dir_list):
 log.info('***********************************************************************************************************************')
 log.info('%s Done %s: Starting to optimize super-mva' %(Fore.RED,Fore.WHITE))
 
+if not os.path.isdir("./SuperMVA"): os.makedirs("./SuperMVA")
+
 X = []
+
+if args.dumpDiscr:
+	disc_histos = {}
+	for key,value in best_discr.iteritems():
+		disc_histos[key] = (ROOT.TH1F(key+"_s",key+"_s",50,0,1),ROOT.TH1F(key+"_b",key+"_b",50,0,1)) #(signal,bkg)
+		
 nen = len(best_discr['All'])
 for i in range(nen):
 	event = []
 	for key,value in best_discr.iteritems():
+		if args.dumpDiscr and y[i] == 1: disc_histos[key][0].Fill(value[i])
+		elif args.dumpDiscr and y[i] == 0: disc_histos[key][1].Fill(value[i])
 		if key == 'All': continue
 		event.append(value[i])
 	X.append(event)
 
-
+if args.dumpDiscr:
+	log.info('%s dumpDisc = True %s: Drawing discriminator distributions!' %(Fore.GREEN,Fore.WHITE))
+	for key,value in disc_histos.iteritems():
+		c = ROOT.TCanvas("c","c",1400,1100)
+		ROOT.gStyle.SetOptStat(0)
+		uppad = ROOT.TPad("u","u",0.,0.2,1.,1.)
+		downpad = ROOT.TPad("d","d",0.,0.,1.,0.2)
+		uppad.Draw()
+		downpad.Draw()
+		uppad.cd()
+		hist_sig = value[0]
+		hist_bkg = value[1]
+		ROOT.gPad.SetMargin(0.13,0.07,0,0.07)
+		uppad.SetLogy(1)
+		l = ROOT.TLegend(0.69,0.75,0.89,0.89)
+		l.SetFillColor(0)
+		
+		hist_sig.Scale(1./hist_sig.Integral())
+		hist_sig.SetTitle("")
+		hist_sig.GetYaxis().SetTitle("Normalized number of entries")
+		hist_sig.GetYaxis().SetTitleOffset(1.4)
+		hist_sig.GetYaxis().SetTitleSize(0.045)
+		hist_sig.GetYaxis().SetRangeUser(0.001,10*hist_sig.GetBinContent(hist_sig.GetMaximumBin()))
+		hist_sig.GetXaxis().SetRangeUser(0,1)
+		hist_sig.GetXaxis().SetTitle("discriminator "+key)
+		hist_sig.GetXaxis().SetTitleOffset(1.4)
+		hist_sig.GetXaxis().SetTitleSize(0.045)		
+		hist_sig.SetLineWidth(2)
+		hist_sig.SetLineColor(1)
+		hist_sig.SetFillColor(ROOT.kBlue-6)
+		l.AddEntry(hist_sig,"Signal","f")
+		hist_sig.DrawCopy("hist")
+		
+		hist_bkg.Scale(1./hist_bkg.Integral())
+		hist_bkg.SetTitle("")
+		hist_bkg.GetYaxis().SetTitle("Normalized number of entries")
+		hist_bkg.GetYaxis().SetTitleOffset(1.4)
+		hist_bkg.GetYaxis().SetTitleSize(0.045)
+		hist_bkg.GetXaxis().SetRangeUser(0,1)
+		hist_bkg.GetXaxis().SetTitle("discriminator "+key)
+		hist_bkg.GetXaxis().SetTitleOffset(1.4)
+		hist_bkg.GetXaxis().SetTitleSize(0.045)		
+		hist_bkg.SetLineWidth(2)
+		hist_bkg.SetLineColor(ROOT.kRed);
+		hist_bkg.SetFillColor(ROOT.kRed);
+   		hist_bkg.SetFillStyle(3004);
+		l.AddEntry(hist_bkg,"Background","f")
+		hist_bkg.Draw("same hist")
+		
+		l.Draw("same")
+		
+		downpad.cd()
+		ROOT.gPad.SetMargin(0.13,0.07,0.4,0.05)
+		hist_sum = hist_sig.Clone()
+		hist_sum.Add(hist_bkg)
+		hist_sig.Divide(hist_sum)
+		
+		hist_sig.GetYaxis().SetTitle("#frac{S}{S+B}")
+		hist_sig.GetYaxis().SetTitleOffset(0.35)
+		hist_sig.GetYaxis().CenterTitle()
+		hist_sig.GetYaxis().SetTitleSize(0.15)
+		hist_sig.GetYaxis().SetRangeUser(0,1)
+		hist_sig.GetYaxis().SetTickLength(0.01)
+		hist_sig.GetYaxis().SetNdivisions(4)
+		hist_sig.GetYaxis().SetLabelSize(0.13)
+		hist_sig.GetXaxis().SetTitle("discriminator "+key)
+		hist_sig.GetXaxis().SetTitleOffset(0.8)
+		hist_sig.GetXaxis().SetTitleSize(0.2)	
+		hist_sig.GetXaxis().SetLabelSize(0.15)
+		hist_sig.SetLineWidth(1)
+		
+		hist_sig.Draw("E")
+		
+		line = ROOT.TLine()
+		line.SetLineStyle(2)
+		line.SetLineColor(4)
+		line.SetLineWidth(1)
+		
+		line.DrawLine(0,0.5,1,0.5)
+		
+		if not os.path.isdir("./SuperMVA/Discr_plots"): os.makedirs("./SuperMVA/Discr_plots")
+		c.SaveAs('./SuperMVA/Discr_plots/discriminator_%s.png' % key)
+		
+		del c
+		del uppad
+		del downpad
+		del l
+		del hist_sig
+		del hist_bkg
+		del line
+		
+		
+		
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
 X_train_skimmed = np.asarray([X_train[i] for i in range(len(X_train)) if i%10 == 0]) # optimization only on 10 %
 y_train_skimmed = np.asarray([y_train[i] for i in range(len(y_train)) if i%10 == 0])
 
 
-if not os.path.isdir("./SuperMVA"): os.makedirs("./SuperMVA")
 
 
 Classifiers_SuperMVA = {}
