@@ -62,6 +62,7 @@ flav_dict = {"C":[4],"B":[5],"DUSG":[1,2,3,21]}
 #*********************************************************************
 
 best_clf = {}
+best_clf_with_name = {}
 best_discr = {}
 
 dir_list = os.listdir(args.indir)
@@ -75,6 +76,7 @@ for idx, ftype in enumerate(dir_list):
 	Classifiers = pickle.load(open(typedir + "TrainingOutputs.pkl","r"))
 
 	best_clf_name,best_clf[ftype] = BestClassifier(Classifiers,args.FoM)
+	best_clf_with_name[ftype]=(best_clf_name,best_clf[ftype])
 	#log.info('%s %s %s: Best classifier is %s %s %s' %(Fore.GREEN,ftype,Fore.WHITE,Fore.BLUE,max(AUC_tmp.iteritems(), key=itemgetter(1))[0],Fore.WHITE))
 	log.info('%s %s %s: Best classifier is %s %s %s' %(Fore.GREEN,ftype,Fore.WHITE,Fore.BLUE,best_clf_name,Fore.WHITE))
 	if args.verbose: log.info('Details: %s' % str(best_clf[ftype]))
@@ -98,8 +100,8 @@ for idx, ftype in enumerate(dir_list):
 	
 	best_discr[ftype] = best_clf[ftype].predict_proba(X)[:,1]
 
-
-
+print best_clf_with_name
+pickle.dump( best_clf_with_name, open( args.indir+"BestClassifiers.pkl", "wb" ) )
 
 
 #**********************************************************************************************************
