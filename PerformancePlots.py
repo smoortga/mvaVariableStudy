@@ -1,3 +1,11 @@
+#
+#
+#	MAKE SOME OUTPUT PLOTS ON WHICH OF THE CLASSIFIERS PERFORMS BEST
+#
+#
+#
+#
+
 import rootpy
 import os
 import numpy as np
@@ -133,6 +141,7 @@ for idx, ftype in enumerate(dir_list):
 		#
 		Acc = [float(i+j)/float(i+j+k+l) if (i+j+k+l !=0) else 0 for i,j,k,l in zip(tp,tn,fp,fn)]
 		ACC_tmp.append(Acc[dx]) # Accuracy at 20% efficiency
+		
 		
 		
 	AUC_scores.append(AUC_tmp)
