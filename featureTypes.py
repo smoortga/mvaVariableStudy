@@ -18,16 +18,6 @@ from random import shuffle
 
 features = pickle.load(open("FeatureVector.p","r"))
 
-#
-# List the default values you want to use for splitting the collections
-#
-defS_cut = 0.5
-defSB_cut = 1
-varSB_cut = [0.9,1.1] # interval
-deltaS_cut = [0,1] # list
-deltaSB_cut = 1
-ScorePercentile_cut = 50
-
 
 
 parser = ArgumentParser()
@@ -36,6 +26,8 @@ parser.add_argument('--dumpTypeMat', action='store_true')
 parser.add_argument('--verbose', action='store_true')
 parser.add_argument('--batch', action='store_true')
 parser.add_argument('--out', default = './Types')
+parser.add_argument('--signal', default='B', help='signal for training')
+parser.add_argument('--bkg', default='DUSG', help='background for training')
 parser.add_argument('--filename', default = './TTjets.root')
 parser.add_argument('--treename', default = 'tree')
 parser.add_argument('--element_per_sample', type=int, default=None, help='consider only the first ... elements in the sample')
@@ -43,7 +35,36 @@ parser.add_argument('--pickEvery', type=int, default=None, help='pick one elemen
 
 args = parser.parse_args()
 
+
+if args.signal == "C":
+	assert args.bkg == "DUSG" or args.bkg == "B", "Invalid background flavour: " + args.bkg + ", must be either DUSG or B for signal flavour: " + args.signal
+elif args.signal == "B":
+	assert args.bkg == "C" or args.bkg == "DUSG", "Invalid background flavour: " + args.bkg + ", must be either C or DUSG for signal flavour: " + args.signal
+elif args.signal == "DUSG":
+	assert args.bkg == "C" or args.bkg == "B", "Invalid background flavour: " + args.bkg + ", must be either B or C for signal flavour: " + args.signal
+else:
+	assert args.signal == "C" or args.signal == "B" or args.signal == "DUSG", "Invalid signal flavour: " + args.signal + ", must be either B or C or DUSG"
+
+
+
 if args.batch: ROOT.gROOT.SetBatch(True)
+
+
+
+
+#
+# List the default values you want to use for splitting the collections
+#
+defSB_cut = 1
+varSB_cut = [0.9,1.1] # interval
+deltaS_cut = [0,1] # list
+deltaSB_cut = 1
+ScorePercentile_cut = 50
+
+#defS cut chould change when considering B or C as signal...
+defS_cut = 0.5
+if args.signal == "C": defS_cut = 0.5
+elif args.signal == "B": defS_cut = 0.15
 
 #
 #
@@ -113,8 +134,8 @@ def Convert(ftype):
 	out = ''
 	splitted = ftype.split('_')
 	for el in splitted:
-		if el == "defS+"+str(defS_cut): out = out + '#splitline{#otimes^{S}#geq'+str(defS_cut) + '}{Large default fraction}'
-		elif el == "defS-"+str(defS_cut): out = out + '#splitline{#otimes^{S}<'+str(defS_cut) + '}{Small default fraction}'
+		if el == "defS+"+str(defS_cut).replace(".",""): out = out + '#splitline{#otimes^{S}#geq'+str(defS_cut).replace(".","") + '}{Large default fraction}'
+		elif el == "defS-"+str(defS_cut).replace(".",""): out = out + '#splitline{#otimes^{S}<'+str(defS_cut).replace(".","") + '}{Small default fraction}'
 		#elif el == "defSB"+str(defSB_cut): out = out + '#otimes^{SB}='+str(defSB_cut) + ', '
 		#elif el == "defSBNot"+str(defSB_cut): out = out + '#otimes^{SB}#neq'+str(defSB_cut) + ', '
 		#elif el == "R":out = out + 'R, '
@@ -146,7 +167,7 @@ final_featureTypes.update(All)
 MathType = {"I":[f for f in features if f.MathType_ == "I"]} # "R":[f for f in features if f.MathType_ == "R"],
 final_featureTypes.update(MathType)
 
-defS = {"defS+"+str(defS_cut):[f for f in features if f.defS_ >= defS_cut],"defS-"+str(defS_cut):[f for f in features if f.defS_ < defS_cut]}
+defS = {"defS+"+str(defS_cut).replace(".",""):[f for f in features if f.defS_ >= defS_cut],"defS-"+str(defS_cut).replace(".",""):[f for f in features if f.defS_ < defS_cut]}
 final_featureTypes.update(defS)
 
 #defSB = {"defSB"+str(defSB_cut):[f for f in features if f.defSB_ == defSB_cut], "defSBNot"+str(defSB_cut):[f for f in features if f.defSB_ != defSB_cut]}
