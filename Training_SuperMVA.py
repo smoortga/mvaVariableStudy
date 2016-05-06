@@ -14,6 +14,7 @@ import itertools
 import copy as cp
 import math
 from operator import itemgetter
+from Helper import *
 
 from sklearn.metrics import roc_curve
 from sklearn.model_selection import GridSearchCV
@@ -44,23 +45,21 @@ ROOT.gROOT.SetBatch(True)
 assert(args.FoM == 'AUC' or args.FoM == 'OOP' or args.FoM == 'ACC' or args.FoM == 'PUR')
 log.info('Using %s %s %s as a Figure of Merit  to select best classifiers' %(Fore.RED,args.FoM,Fore.WHITE))
 
-def convert_to_best_worst(array):
-	tmp = cp.copy(array)
-	for idx,i in enumerate(array):
-		min_ = min(i)
-		max_ = max(i)
-		for jdx,j in enumerate(i):
-			if j == max_: tmp[idx][jdx] = 1
-			elif j == min_: tmp[idx][jdx] = 0
-			else: tmp[idx][jdx] = 0.5
-	return tmp
-
 
 bkg_number = []
 if args.bkg == "C": bkg_number=[4]
 elif args.bkg == "B": bkg_number=[5]
 flav_dict = {"C":[4],"B":[5],"DUSG":[1,2,3,21]}
 
+
+
+
+
+#*********************************************************************
+#
+# STEP 1) SEARCH FOR THE BEST CLASSIFIER FOR EACH TYPE
+#
+#*********************************************************************
 
 best_clf = {}
 best_discr = {}
@@ -74,61 +73,10 @@ for idx, ftype in enumerate(dir_list):
 	log.info('************ Processing Type (%s/%s): %s %s %s ****************' % (str(idx+1),str(ntypes),Fore.GREEN,ftype,Fore.WHITE))
 	if args.verbose: log.info('Working in directory: %s' % typedir)
 	Classifiers = pickle.load(open(typedir + "TrainingOutputs.pkl","r"))
-	
 
-	AUC_tmp = {}
-	OOP_tmp = {}
-	PUR_tmp = {}
-	ACC_tmp = {}
-	for name, clf in Classifiers.items():
-		#if idx == 0: clf_names.append(name)
-		y_true = clf[1]
-		disc = clf[2]
-		fpr = clf[3]
-		tpr = clf[4]
-		thres = clf[5]
-		disc_s = disc[y_true == 1]
-		disc_b = disc[y_true == 0]
-		tp = [len(disc_s[disc_s>=t]) for t in thres]
-		fp = [len(disc_b[disc_b>=t]) for t in thres]
-		tn = [len(disc_b[disc_b<t]) for t in thres]
-		fn = [len(disc_s[disc_s<t]) for t in thres]
-		
-		#
-		# Area under ROC-curve
-		#
-		if args.FoM == 'AUC':
-			AUC_tmp[name]=roc_auc_score(y_true,disc)
-		
-		#
-		# Optimal Operating Point
-		#
-		elif args.FoM == 'OOP':
-			dist = [math.sqrt((i-1)**2 + (j-0)**2) for i,j in zip(tpr,fpr)]
-			OOP_tmp[name] = 1-min(dist)
-		
-		#
-		# Purity
-		#
-		elif args.FoM == 'PUR':
-			atEff = 0.5
-			pur = [float(i)/float(i+j) if (i+j != 0) else 0 for i,j in zip(tp,fp)]
-			val, dx = min((val, dx) for (dx, val) in enumerate([abs(atEff-i) for i in tpr]))# point with eff closes to [atEff]
-			PUR_tmp[name] = pur[dx] # Purity at [atEff]% efficiency
-		
-		#
-		# Accuracy
-		#
-		elif args.FoM == 'ACC':
-			Acc = [float(i+j)/float(i+j+k+l) if (i+j+k+l !=0) else 0 for i,j,k,l in zip(tp,tn,fp,fn)]
-			ACC_tmp[name] = Acc[dx] # Accuracy at [atEff]% efficiency
-		
-		
-	if args.FoM == 'AUC': best_clf[ftype] = Classifiers[max(AUC_tmp.iteritems(), key=itemgetter(1))[0]][0]
-	elif args.FoM == 'OOP': best_clf[ftype] = Classifiers[max(OOP_tmp.iteritems(), key=itemgetter(1))[0]][0]
-	elif args.FoM == 'PUR': best_clf[ftype] = Classifiers[max(PUR_tmp.iteritems(), key=itemgetter(1))[0]][0]
-	elif args.FoM == 'ACC': best_clf[ftype] = Classifiers[max(ACC_tmp.iteritems(), key=itemgetter(1))[0]][0]
-	log.info('%s %s %s: Best classifier is %s %s %s' %(Fore.GREEN,ftype,Fore.WHITE,Fore.BLUE,max(AUC_tmp.iteritems(), key=itemgetter(1))[0],Fore.WHITE))
+	best_clf_name,best_clf[ftype] = BestClassifier(Classifiers,args.FoM)
+	#log.info('%s %s %s: Best classifier is %s %s %s' %(Fore.GREEN,ftype,Fore.WHITE,Fore.BLUE,max(AUC_tmp.iteritems(), key=itemgetter(1))[0],Fore.WHITE))
+	log.info('%s %s %s: Best classifier is %s %s %s' %(Fore.GREEN,ftype,Fore.WHITE,Fore.BLUE,best_clf_name,Fore.WHITE))
 	if args.verbose: log.info('Details: %s' % str(best_clf[ftype]))
 	
 	
@@ -152,6 +100,13 @@ for idx, ftype in enumerate(dir_list):
 
 
 
+
+
+#**********************************************************************************************************
+#
+# STEP 2) BASED ON THE OUTPUT DISCRIMINATORS OF STEP 1, OPTIMIZE THE SUPER-MVA FOR DIFFERENT MVA METHODS
+#
+#**********************************************************************************************************
 
 
 log.info('***********************************************************************************************************************')
@@ -178,95 +133,7 @@ for i in range(nen):
 
 if args.dumpDiscr:
 	log.info('%s dumpDisc = True %s: Drawing discriminator distributions!' %(Fore.GREEN,Fore.WHITE))
-	for key,value in disc_histos.iteritems():
-		c = ROOT.TCanvas("c","c",1400,1100)
-		ROOT.gStyle.SetOptStat(0)
-		uppad = ROOT.TPad("u","u",0.,0.2,1.,1.)
-		downpad = ROOT.TPad("d","d",0.,0.,1.,0.2)
-		uppad.Draw()
-		downpad.Draw()
-		uppad.cd()
-		hist_sig = value[0]
-		hist_bkg = value[1]
-		ROOT.gPad.SetMargin(0.13,0.07,0,0.07)
-		uppad.SetLogy(1)
-		l = ROOT.TLegend(0.69,0.75,0.89,0.89)
-		l.SetFillColor(0)
-		
-		hist_sig.Scale(1./hist_sig.Integral())
-		hist_sig.SetTitle("")
-		hist_sig.GetYaxis().SetTitle("Normalized number of entries")
-		hist_sig.GetYaxis().SetTitleOffset(1.4)
-		hist_sig.GetYaxis().SetTitleSize(0.045)
-		hist_sig.GetYaxis().SetRangeUser(0.001,10*hist_sig.GetBinContent(hist_sig.GetMaximumBin()))
-		hist_sig.GetXaxis().SetRangeUser(0,1)
-		hist_sig.GetXaxis().SetTitle("discriminator "+key)
-		hist_sig.GetXaxis().SetTitleOffset(1.4)
-		hist_sig.GetXaxis().SetTitleSize(0.045)		
-		hist_sig.SetLineWidth(2)
-		hist_sig.SetLineColor(1)
-		hist_sig.SetFillColor(ROOT.kBlue-6)
-		l.AddEntry(hist_sig,"Signal","f")
-		hist_sig.DrawCopy("hist")
-		
-		hist_bkg.Scale(1./hist_bkg.Integral())
-		hist_bkg.SetTitle("")
-		hist_bkg.GetYaxis().SetTitle("Normalized number of entries")
-		hist_bkg.GetYaxis().SetTitleOffset(1.4)
-		hist_bkg.GetYaxis().SetTitleSize(0.045)
-		hist_bkg.GetXaxis().SetRangeUser(0,1)
-		hist_bkg.GetXaxis().SetTitle("discriminator "+key)
-		hist_bkg.GetXaxis().SetTitleOffset(1.4)
-		hist_bkg.GetXaxis().SetTitleSize(0.045)		
-		hist_bkg.SetLineWidth(2)
-		hist_bkg.SetLineColor(ROOT.kRed);
-		hist_bkg.SetFillColor(ROOT.kRed);
-   		hist_bkg.SetFillStyle(3004);
-		l.AddEntry(hist_bkg,"Background","f")
-		hist_bkg.Draw("same hist")
-		
-		l.Draw("same")
-		
-		downpad.cd()
-		ROOT.gPad.SetMargin(0.13,0.07,0.4,0.05)
-		hist_sum = hist_sig.Clone()
-		hist_sum.Add(hist_bkg)
-		hist_sig.Divide(hist_sum)
-		
-		hist_sig.GetYaxis().SetTitle("#frac{S}{S+B}")
-		hist_sig.GetYaxis().SetTitleOffset(0.35)
-		hist_sig.GetYaxis().CenterTitle()
-		hist_sig.GetYaxis().SetTitleSize(0.15)
-		hist_sig.GetYaxis().SetRangeUser(0,1)
-		hist_sig.GetYaxis().SetTickLength(0.01)
-		hist_sig.GetYaxis().SetNdivisions(4)
-		hist_sig.GetYaxis().SetLabelSize(0.13)
-		hist_sig.GetXaxis().SetTitle("discriminator "+key)
-		hist_sig.GetXaxis().SetTitleOffset(0.8)
-		hist_sig.GetXaxis().SetTitleSize(0.2)	
-		hist_sig.GetXaxis().SetLabelSize(0.15)
-		hist_sig.SetLineWidth(1)
-		
-		hist_sig.Draw("E")
-		
-		line = ROOT.TLine()
-		line.SetLineStyle(2)
-		line.SetLineColor(4)
-		line.SetLineWidth(1)
-		
-		line.DrawLine(0,0.5,1,0.5)
-		
-		if not os.path.isdir("./SuperMVA/Discr_plots"): os.makedirs("./SuperMVA/Discr_plots")
-		c.SaveAs('./SuperMVA/Discr_plots/discriminator_%s.png' % key)
-		
-		del c
-		del uppad
-		del downpad
-		del l
-		del hist_sig
-		del hist_bkg
-		del line
-		
+	DrawDiscriminatorDistributions(disc_histos,"./SuperMVA/Discr_plots")
 		
 		
 
@@ -435,61 +302,30 @@ OutFile.write("SVM: " + str(svm_best_clf.get_params()) + "\n")
 
 pickle.dump(Classifiers_SuperMVA,open( "./SuperMVA/TrainingOutputs.pkl", "wb" ))
 
-# What is the best clf for SuperMVA???
 
-for name, clf in Classifiers_SuperMVA.items():
-	#if idx == 0: clf_names.append(name)
-	y_true = clf[1]
-	disc = clf[2]
-	fpr = clf[3]
-	tpr = clf[4]
-	thres = clf[5]
-	disc_s = disc[y_true == 1]
-	disc_b = disc[y_true == 0]
-	tp = [len(disc_s[disc_s>=t]) for t in thres]
-	fp = [len(disc_b[disc_b>=t]) for t in thres]
-	tn = [len(disc_b[disc_b<t]) for t in thres]
-	fn = [len(disc_s[disc_s<t]) for t in thres]
-	
-	#
-	# Area under ROC-curve
-	#
-	if args.FoM == 'AUC':
-		AUC_tmp[name]=roc_auc_score(y_true,disc)
-	
-	#
-	# Optimal Operating Point
-	#
-	elif args.FoM == 'OOP':
-		dist = [math.sqrt((i-1)**2 + (j-0)**2) for i,j in zip(tpr,fpr)]
-		OOP_tmp[name] = 1-min(dist)
-	
-	#
-	# Purity
-	#
-	elif args.FoM == 'PUR':
-		atEff = 0.5
-		pur = [float(i)/float(i+j) if (i+j != 0) else 0 for i,j in zip(tp,fp)]
-		val, dx = min((val, dx) for (dx, val) in enumerate([abs(atEff-i) for i in tpr]))# point with eff closes to [atEff]
-		PUR_tmp[name] = pur[dx] # Purity at [atEff]% efficiency
-	
-	#
-	# Accuracy
-	#
-	elif args.FoM == 'ACC':
-		Acc = [float(i+j)/float(i+j+k+l) if (i+j+k+l !=0) else 0 for i,j,k,l in zip(tp,tn,fp,fn)]
-		ACC_tmp[name] = Acc[dx] # Accuracy at [atEff]% efficiency
-	
-	
-if args.FoM == 'AUC': best_clf_SuperMVA = Classifiers_SuperMVA[max(AUC_tmp.iteritems(), key=itemgetter(1))[0]][0]
-elif args.FoM == 'OOP': best_clf_SuperMVA = Classifiers_SuperMVA[max(OOP_tmp.iteritems(), key=itemgetter(1))[0]][0]
-elif args.FoM == 'PUR': best_clf_SuperMVA = Classifiers_SuperMVA[max(PUR_tmp.iteritems(), key=itemgetter(1))[0]][0]
-elif args.FoM == 'ACC': best_clf_SuperMVA = Classifiers_SuperMVA[max(ACC_tmp.iteritems(), key=itemgetter(1))[0]][0]
-log.info('%s SuperMVA %s: Best classifier for SuperMVA is %s %s %s' %(Fore.GREEN,Fore.WHITE,Fore.BLUE,max(AUC_tmp.iteritems(), key=itemgetter(1))[0],Fore.WHITE))
+
+
+
+#*******************************************************************
+#
+# STEP 3) SEARCH FOR THE BEST CLASSIFIER FOR THE SUPER-MVA
+#
+#*******************************************************************
+
+best_clf_SuperMVA_name,best_clf_SuperMVA = BestClassifier(Classifiers_SuperMVA,args.FoM)
+log.info('%s SuperMVA %s: Best classifier for SuperMVA is %s %s %s' %(Fore.GREEN,Fore.WHITE,Fore.BLUE,best_clf_SuperMVA_name,Fore.WHITE))
 if args.verbose: log.info('Details: %s' % str(best_clf_SuperMVA[ftype]))
 
 
 
+
+
+
+#*************************************************************************************************************
+#
+# STEP 4) REVALIDATE THE SUPER-MVA ON MORE INPUT AND COMPARE TO THE 1-STEP MVA (ROC PLOT)
+#
+#*************************************************************************************************************
 
 log.info('***********************************************************************************************************************')
 log.info('%s Done %s: Starting to revalidate SuperMVA' %(Fore.RED,Fore.WHITE))
@@ -517,94 +353,7 @@ if args.dumpDiscr:
 		if y_SuperMVA[i] == 1: disc_histos_final['2step'][0].Fill(SuperMVA_disc[i])
 		elif y_SuperMVA[i] == 0: disc_histos_final['2step'][1].Fill(SuperMVA_disc[i])
 	
-	for key,value in disc_histos_final.iteritems():
-		c = ROOT.TCanvas("c","c",1400,1100)
-		ROOT.gStyle.SetOptStat(0)
-		uppad = ROOT.TPad("u","u",0.,0.2,1.,1.)
-		downpad = ROOT.TPad("d","d",0.,0.,1.,0.2)
-		uppad.Draw()
-		downpad.Draw()
-		uppad.cd()
-		hist_sig = value[0]
-		hist_bkg = value[1]
-		ROOT.gPad.SetMargin(0.13,0.07,0,0.07)
-		uppad.SetLogy(1)
-		l = ROOT.TLegend(0.69,0.75,0.89,0.89)
-		l.SetFillColor(0)
-		
-		hist_sig.Scale(1./hist_sig.Integral())
-		hist_sig.SetTitle("")
-		hist_sig.GetYaxis().SetTitle("Normalized number of entries")
-		hist_sig.GetYaxis().SetTitleOffset(1.4)
-		hist_sig.GetYaxis().SetTitleSize(0.045)
-		hist_sig.GetYaxis().SetRangeUser(0.001,10*hist_sig.GetBinContent(hist_sig.GetMaximumBin()))
-		hist_sig.GetXaxis().SetRangeUser(0,1)
-		hist_sig.GetXaxis().SetTitle("discriminator "+key)
-		hist_sig.GetXaxis().SetTitleOffset(1.4)
-		hist_sig.GetXaxis().SetTitleSize(0.045)		
-		hist_sig.SetLineWidth(2)
-		hist_sig.SetLineColor(1)
-		hist_sig.SetFillColor(ROOT.kBlue-6)
-		l.AddEntry(hist_sig,"Signal","f")
-		hist_sig.DrawCopy("hist")
-		
-		hist_bkg.Scale(1./hist_bkg.Integral())
-		hist_bkg.SetTitle("")
-		hist_bkg.GetYaxis().SetTitle("Normalized number of entries")
-		hist_bkg.GetYaxis().SetTitleOffset(1.4)
-		hist_bkg.GetYaxis().SetTitleSize(0.045)
-		hist_bkg.GetXaxis().SetRangeUser(0,1)
-		hist_bkg.GetXaxis().SetTitle("discriminator "+key)
-		hist_bkg.GetXaxis().SetTitleOffset(1.4)
-		hist_bkg.GetXaxis().SetTitleSize(0.045)		
-		hist_bkg.SetLineWidth(2)
-		hist_bkg.SetLineColor(ROOT.kRed);
-		hist_bkg.SetFillColor(ROOT.kRed);
-   		hist_bkg.SetFillStyle(3004);
-		l.AddEntry(hist_bkg,"Background","f")
-		hist_bkg.Draw("same hist")
-		
-		l.Draw("same")
-		
-		downpad.cd()
-		ROOT.gPad.SetMargin(0.13,0.07,0.4,0.05)
-		hist_sum = hist_sig.Clone()
-		hist_sum.Add(hist_bkg)
-		hist_sig.Divide(hist_sum)
-		
-		hist_sig.GetYaxis().SetTitle("#frac{S}{S+B}")
-		hist_sig.GetYaxis().SetTitleOffset(0.35)
-		hist_sig.GetYaxis().CenterTitle()
-		hist_sig.GetYaxis().SetTitleSize(0.15)
-		hist_sig.GetYaxis().SetRangeUser(0,1)
-		hist_sig.GetYaxis().SetTickLength(0.01)
-		hist_sig.GetYaxis().SetNdivisions(4)
-		hist_sig.GetYaxis().SetLabelSize(0.13)
-		hist_sig.GetXaxis().SetTitle("discriminator "+key)
-		hist_sig.GetXaxis().SetTitleOffset(0.8)
-		hist_sig.GetXaxis().SetTitleSize(0.2)	
-		hist_sig.GetXaxis().SetLabelSize(0.15)
-		hist_sig.SetLineWidth(1)
-		
-		hist_sig.Draw("E")
-		
-		line = ROOT.TLine()
-		line.SetLineStyle(2)
-		line.SetLineColor(4)
-		line.SetLineWidth(1)
-		
-		line.DrawLine(0,0.5,1,0.5)
-		
-		if not os.path.isdir("./SuperMVA/Discr_plots"): os.makedirs("./SuperMVA/Discr_plots")
-		c.SaveAs('./SuperMVA/Discr_plots/discriminator_%s.png' % key)
-		
-		del c
-		del uppad
-		del downpad
-		del l
-		del hist_sig
-		del hist_bkg
-		del line
+	DrawDiscriminatorDistributions(disc_histos_final,"./SuperMVA/Discr_plots")
 
 
 plt.semilogy(All_tpr, All_fpr,label='1-step MVA')
