@@ -99,7 +99,7 @@ def BestClassifier(Classifiers,FoM):
 
 
 
-def DrawDiscriminatorDistributions(hist_dict,outdir):
+def DrawDiscriminatorDistributions(hist_dict,outdir,outname):
 	"""
 	Goal: Draw the histograms nicely from a histos dictionary {"type":(signal_histos,background_histos)}
 	returns: noting, just saves a canvas with the overlays in the given outdir
@@ -183,7 +183,7 @@ def DrawDiscriminatorDistributions(hist_dict,outdir):
 		line.DrawLine(0,0.5,1,0.5)
 		
 		if not os.path.isdir(outdir): os.makedirs(outdir)
-		c.SaveAs('%s/discriminator_%s.png' % (outdir,key))
+		c.SaveAs('%s/%s_%s.png' % (outdir,outname,key))
 		
 		del c
 		del uppad

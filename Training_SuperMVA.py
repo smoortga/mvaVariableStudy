@@ -33,6 +33,7 @@ parser = ArgumentParser()
 parser.add_argument('--indir', default = os.getcwd()+'/Types/')
 parser.add_argument('--verbose', action='store_true')
 parser.add_argument('--dumpDiscr', action='store_true')
+parser.add_argument('--includeAllType', action='store_true')
 parser.add_argument('--FoM', type=str, default = 'AUC', help='Which Figure or Merit (FoM) to use: AUC,PUR,ACC,OOP')
 parser.add_argument('--pickEvery', type=int, default=1, help='pick one element every ...')
 parser.add_argument('--signal', default='C', help='signal for training')
@@ -65,7 +66,7 @@ best_clf = {}
 best_clf_with_name = {}
 best_discr = {}
 
-dir_list = os.listdir(args.indir)
+dir_list = [d for d in os.listdir(args.indir) if not d.endswith('.pkl')]
 #dir_list.remove("All")
 ntypes = len(dir_list)
 for idx, ftype in enumerate(dir_list):
@@ -100,7 +101,6 @@ for idx, ftype in enumerate(dir_list):
 	
 	best_discr[ftype] = best_clf[ftype].predict_proba(X)[:,1]
 
-print best_clf_with_name
 pickle.dump( best_clf_with_name, open( args.indir+"BestClassifiers.pkl", "wb" ) )
 
 
@@ -124,18 +124,19 @@ if args.dumpDiscr:
 		disc_histos[key] = (ROOT.TH1F(key+"_s",key+"_s",50,0,1),ROOT.TH1F(key+"_b",key+"_b",50,0,1)) #(signal,bkg)
 		
 nen = len(best_discr['All'])
+log.info("Option %sargs.includeAllType = %s%s." %(Fore.GREEN,args.includeAllType,Fore.WHITE))
 for i in range(nen):
 	event = []
 	for key,value in best_discr.iteritems():
 		if args.dumpDiscr and y[i] == 1: disc_histos[key][0].Fill(value[i])
 		elif args.dumpDiscr and y[i] == 0: disc_histos[key][1].Fill(value[i])
-		if key == 'All': continue
+		if key == 'All' and not args.includeAllType: continue
 		event.append(value[i])
 	X.append(event)
 
 if args.dumpDiscr:
 	log.info('%s dumpDisc = True %s: Drawing discriminator distributions!' %(Fore.GREEN,Fore.WHITE))
-	DrawDiscriminatorDistributions(disc_histos,"./SuperMVA/Discr_plots")
+	DrawDiscriminatorDistributions(disc_histos,"./SuperMVA/Discr_plots","discriminator")
 		
 		
 
@@ -302,7 +303,8 @@ OutFile.write("SVM: " + str(svm_best_clf.get_params()) + "\n")
 
 
 
-pickle.dump(Classifiers_SuperMVA,open( "./SuperMVA/TrainingOutputs.pkl", "wb" ))
+if args.includeAllType: pickle.dump(Classifiers_SuperMVA,open( "./SuperMVA/TrainingOutputs_withAll.pkl", "wb" ))
+else: pickle.dump(Classifiers_SuperMVA,open( "./SuperMVA/TrainingOutputs.pkl", "wb" ))
 
 
 
@@ -317,6 +319,11 @@ pickle.dump(Classifiers_SuperMVA,open( "./SuperMVA/TrainingOutputs.pkl", "wb" ))
 best_clf_SuperMVA_name,best_clf_SuperMVA = BestClassifier(Classifiers_SuperMVA,args.FoM)
 log.info('%s SuperMVA %s: Best classifier for SuperMVA is %s %s %s' %(Fore.GREEN,Fore.WHITE,Fore.BLUE,best_clf_SuperMVA_name,Fore.WHITE))
 if args.verbose: log.info('Details: %s' % str(best_clf_SuperMVA[ftype]))
+
+best_clf_SuperMVA_with_name = {}
+best_clf_SuperMVA_with_name['SuperMVA']=(best_clf_SuperMVA_name,best_clf_SuperMVA)
+if args.includeAllType: pickle.dump( best_clf_SuperMVA_with_name, open( "./SuperMVA/BestClassifierSuperMVA_withAll.pkl", "wb" ) )
+else: pickle.dump( best_clf_SuperMVA_with_name, open( "./SuperMVA/BestClassifierSuperMVA.pkl", "wb" ) )
 
 
 
@@ -355,7 +362,8 @@ if args.dumpDiscr:
 		if y_SuperMVA[i] == 1: disc_histos_final['2step'][0].Fill(SuperMVA_disc[i])
 		elif y_SuperMVA[i] == 0: disc_histos_final['2step'][1].Fill(SuperMVA_disc[i])
 	
-	DrawDiscriminatorDistributions(disc_histos_final,"./SuperMVA/Discr_plots")
+	if args.includeAllType: DrawDiscriminatorDistributions(disc_histos_final,"./SuperMVA/Discr_plots","discriminator_withAll")
+	else: DrawDiscriminatorDistributions(disc_histos_final,"./SuperMVA/Discr_plots","discriminator")
 
 
 plt.semilogy(All_tpr, All_fpr,label='1-step MVA')
