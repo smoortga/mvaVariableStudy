@@ -117,6 +117,7 @@ log.info('%s Done %s: Starting to optimize super-mva' %(Fore.RED,Fore.WHITE))
 if not os.path.isdir("./SuperMVA"): os.makedirs("./SuperMVA")
 
 X = []
+ordered_SuperFeatures = []
 
 if args.dumpDiscr:
 	disc_histos = {}
@@ -131,8 +132,12 @@ for i in range(nen):
 		if args.dumpDiscr and y[i] == 1: disc_histos[key][0].Fill(value[i])
 		elif args.dumpDiscr and y[i] == 0: disc_histos[key][1].Fill(value[i])
 		if key == 'All' and not args.includeAllType: continue
+		if key not in ordered_SuperFeatures: ordered_SuperFeatures.append(key)
 		event.append(value[i])
 	X.append(event)
+
+if not args.includeAllType: pickle.dump(ordered_SuperFeatures,open( "./SuperMVA/orderedFeatureNames.pkl", "wb" ))
+else: pickle.dump(ordered_SuperFeatures,open( "./SuperMVA/orderedFeatureNames_withAll.pkl", "wb" ))
 
 if args.dumpDiscr:
 	log.info('%s dumpDisc = True %s: Drawing discriminator distributions!' %(Fore.GREEN,Fore.WHITE))

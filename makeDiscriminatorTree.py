@@ -11,6 +11,7 @@ from ROOT import *
 import rootpy
 import os
 import numpy as np
+from features import *
 import root_numpy as rootnp
 from argparse import ArgumentParser
 log = rootpy.log["/makeDiscriminatorTree"]
@@ -78,9 +79,13 @@ input_tree = input_file.Get(args.InputTree)
 #
 #******************************************************
 
+input_tree.SetBranchStatus("*",0)
+for ft in general+vertex+leptons:
+	input_tree.SetBranchStatus(ft,1)
+input_tree.SetBranchStatus("flavour",1)
 if not os.path.isdir("./DiscriminatorOutputs"): os.makedirs("./DiscriminatorOutputs")
 outfile = TFile('./DiscriminatorOutputs/discriminator_ntuple.root','RECREATE')
-tree = input_tree.CloneTree()
+tree = input_tree.CloneTree(0)
 
 Types = [d for d in os.listdir(args.Typesdir) if not d.endswith('.pkl')]
 clf_names = ['GBC','RF','SVM','SGD','kNN','NB','MLP']
@@ -109,7 +114,11 @@ dict_Leaves['SuperMVA_BEST_'+SuperMVA_best_clf_name] = array('d',[0])
 dict_Leaves['SuperMVA_withAll_BEST_'+SuperMVA_withAll_best_clf_name] = array('d',[0])
 
 for name,arr in dict_Leaves.iteritems():
-	tree.Branch(name, arr, name + "/D")
+	branch_name = name
+	branch_name = branch_name.replace("+","plus")
+	branch_name = branch_name.replace("-","minus")
+	tree.Branch(branch_name, arr, branch_name + "/D")
+	
 
 
 #******************************************************
@@ -135,7 +144,6 @@ for c in clf_names:
 dict_clf['SuperMVA_BEST_'+SuperMVA_best_clf_name] = dict_pickles["SuperMVA_Best"]['SuperMVA'][1]
 dict_clf['SuperMVA_withAll_BEST_'+SuperMVA_withAll_best_clf_name] = dict_pickles["SuperMVA_withAll_Best"]['SuperMVA'][1]
 
-print len(dict_clf), len(dict_Leaves)
 
 #******************************************************
 #
@@ -149,14 +157,12 @@ dict_Discriminators = {}
 # All types, all classifiers
 #******************************************************
 
-log.info('Processing: %sall types, all classifiers%s' %(Fore.BLUE,Fore.WHITE))
+log.info('Processing: %sall types, all classifiers (including the best for each type)%s' %(Fore.BLUE,Fore.WHITE))
 for t in Types:
 	variables = pickle.load(open(args.Typesdir+t+"/featurenames.pkl","r"))
 	variables = [x for x in variables if x != 'flavour']
 	X = rootnp.root2array(args.InputFile,args.InputTree,variables,None,0,args.elements_per_sample,args.pickEvery,False,'weight')
 	X = rootnp.rec2array(X)
-	# select only every 'pickEvery' and onle the first 'element_per_sample'
-	X = np.asarray([X[i] for i in range(len(X)) if i%args.pickEvery == 0])
 	for c in clf_names:
 		log.info('Type: %s%s%s, Classifier: %s%s%s' %(Fore.RED,t,Fore.WHITE,Fore.GREEN,c,Fore.WHITE))
 		classifier = dict_clf[t+'_'+c]
@@ -167,10 +173,72 @@ for t in Types:
 	log.info('Type: %s%s%s, Best Classifier is: %s%s%s' %(Fore.RED,t,Fore.WHITE,Fore.GREEN,best_clf_name,Fore.WHITE))
 	dict_Discriminators[t+'_BEST_'+best_clf_name] = best_classifier.predict_proba(X)[:,1] 
 
-print dict_Discriminators
+
+#******************************************************
+# Super-MVA without All
+#******************************************************
+
+log.info('Processing: %sSuper MVA all types and Best (WITHOUT ALL TYPE)%s' %(Fore.BLUE,Fore.WHITE))
+X = []
+nen = len(dict_Discriminators['All_GBC'])
+ordered_types = pickle.load(open("./SuperMVA/orderedFeatureNames.pkl","r"))
+for i in range(nen):
+	event = []
+	for type_name in ordered_types:
+		disc_buffer = [value for key,value in dict_Discriminators.iteritems() if type_name+"_BEST_" in key][0]
+		event.append(disc_buffer[i])
+	X.append(event)
+X = np.asarray(X)
+
+for c in clf_names:
+	log.info('Type: %sSuperMVA%s, Classifier: %s%s%s' %(Fore.RED,Fore.WHITE,Fore.GREEN,c,Fore.WHITE))
+	classifier = dict_clf['SuperMVA_'+c]
+	dict_Discriminators['SuperMVA_'+c] = classifier.predict_proba(X)[:,1]
+log.info('Type: %sSuperMVA%s, Best Classifier is: %s%s%s' %(Fore.RED,Fore.WHITE,Fore.GREEN,SuperMVA_best_clf_name,Fore.WHITE))
+best_classifier = dict_clf['SuperMVA_BEST_'+SuperMVA_best_clf_name]
+dict_Discriminators['SuperMVA_BEST_'+SuperMVA_best_clf_name] = best_classifier.predict_proba(X)[:,1]
 
 
+#******************************************************
+# Super-MVA Including All
+#******************************************************
 
+log.info('Processing: %sSuper MVA all types and Best (INCLUDING ALL TYPE)%s' %(Fore.BLUE,Fore.WHITE))
+X = []
+nen = len(dict_Discriminators['All_GBC'])
+ordered_types = pickle.load(open("./SuperMVA/orderedFeatureNames_withAll.pkl","r"))
+for i in range(nen):
+	event = []
+	for type_name in ordered_types:
+		disc_buffer = [value for key,value in dict_Discriminators.iteritems() if type_name+"_BEST_" in key][0]
+		event.append(disc_buffer[i])
+	X.append(event)
+X = np.asarray(X)
+
+for c in clf_names:
+	log.info('Type: %sSuperMVA (with All)%s, Classifier: %s%s%s' %(Fore.RED,Fore.WHITE,Fore.GREEN,c,Fore.WHITE))
+	classifier = dict_clf['SuperMVA_withAll_'+c]
+	dict_Discriminators['SuperMVA_withAll_'+c] = classifier.predict_proba(X)[:,1]
+log.info('Type: %sSuperMVA (with All)%s, Best Classifier is: %s%s%s' %(Fore.RED,Fore.WHITE,Fore.GREEN,SuperMVA_withAll_best_clf_name,Fore.WHITE))
+best_classifier = dict_clf['SuperMVA_withAll_BEST_'+SuperMVA_withAll_best_clf_name]
+dict_Discriminators['SuperMVA_withAll_BEST_'+SuperMVA_withAll_best_clf_name] = best_classifier.predict_proba(X)[:,1]
+
+
+#******************************************************
+#
+# Filling Output Tree
+#
+#******************************************************
+
+nEntries = len(dict_Discriminators['All_GBC'])
+for i in range(nEntries):
+	input_tree.GetEntry(i*args.pickEvery)
+	for key,value in dict_Discriminators.iteritems():
+		dict_Leaves[key][0] = value[i]
+	tree.Fill()
+
+tree.Write()
+outfile.Close()
 
 
 
