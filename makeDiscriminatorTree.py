@@ -34,21 +34,13 @@ parser = ArgumentParser()
 parser.add_argument('--Typesdir', default = os.getcwd()+'/Types/')
 parser.add_argument('--InputFile', default = os.getcwd()+'/TTjets.root')
 parser.add_argument('--InputTree', default = 'tree')
-parser.add_argument('--signal', default='C', help='signal for training')
-parser.add_argument('--bkg', default='DUSG', help='background for training')
-#parser.add_argument('--verbose', action='store_true')
-#parser.add_argument('--includeAllType', action='store_true')
-parser.add_argument('--pickEvery', type=int, default=1, help='pick one element every ...')
+parser.add_argument('--OutputDir', default = os.getcwd()+'/DiscriminatorOutputs/')
+parser.add_argument('--OutputFile', default = 'discriminator_ntuple.root')
+parser.add_argument('--pickEvery', type=int, default=None, help='pick one element every ...')
 parser.add_argument('--elements_per_sample', type=int, default=None, help='consider only the first ... elements in the sample')
 
 args = parser.parse_args()
 
-flav_dict = {"C":[4],"B":[5],"DUSG":[1,2,3,21]}
-
-bkg_number = []
-if args.bkg == "C": bkg_number=[4]
-elif args.bkg == "B": bkg_number=[5]
-else: bkg_number = [1,2,3,21]
 
 
 #******************************************************
@@ -83,8 +75,8 @@ input_tree.SetBranchStatus("*",0)
 for ft in general+vertex+leptons:
 	input_tree.SetBranchStatus(ft,1)
 input_tree.SetBranchStatus("flavour",1)
-if not os.path.isdir("./DiscriminatorOutputs"): os.makedirs("./DiscriminatorOutputs")
-outfile = TFile('./DiscriminatorOutputs/discriminator_ntuple.root','RECREATE')
+if not os.path.isdir(args.OutputDir): os.makedirs(args.OutputDir)
+outfile = TFile(args.OutputDir+args.OutputFile,'RECREATE')
 tree = input_tree.CloneTree(0)
 
 Types = [d for d in os.listdir(args.Typesdir) if not d.endswith('.pkl')]
@@ -230,9 +222,12 @@ dict_Discriminators['SuperMVA_withAll_BEST_'+SuperMVA_withAll_best_clf_name] = b
 #
 #******************************************************
 
+log.info('Starting to process the output tree')
 nEntries = len(dict_Discriminators['All_GBC'])
 for i in range(nEntries):
-	input_tree.GetEntry(i*args.pickEvery)
+	if i%1000 == 0: log.info('Processing event %s/%s (%s%.2f%s%%)' %(i,nEntries,Fore.GREEN,100*float(i)/float(nEntries),Fore.WHITE))
+	if args.pickEvery == None: input_tree.GetEntry(i)
+	else: input_tree.GetEntry(i*args.pickEvery)
 	for key,value in dict_Discriminators.iteritems():
 		dict_Leaves[key][0] = value[i]
 	tree.Fill()
@@ -240,7 +235,7 @@ for i in range(nEntries):
 tree.Write()
 outfile.Close()
 
-
+log.info('Done: output file dumped in %s%s' %(args.OutputDir,args.OutputFile))
 
 
 
