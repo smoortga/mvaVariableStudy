@@ -2,6 +2,7 @@ import ROOT
 import rootpy
 import os
 import numpy as np
+import root_numpy as rootnp
 from argparse import ArgumentParser
 from pylab import *
 log = rootpy.log["/Helper"]
@@ -13,6 +14,7 @@ import matplotlib.pyplot as plt
 import itertools
 import copy as cp
 import math
+import pandas as pd
 from operator import itemgetter
 
 from sklearn.metrics import roc_curve
@@ -231,9 +233,35 @@ def Draw2dCorrHistFromROOT(infile,intree,outfile,branchname1,branchname2,axisnam
 	
 	c.SaveAs(outfile)
 
+
+def DrawCorrelationMatrixFromROOT(infile,intree,outfile,brancharray,selection="",pickEvery=None):
+	X = np.ndarray((0,len(brancharray)),float) # container to hold the combined trees in numpy array structure
+	treeArray = rootnp.root2array(infile,intree,brancharray,selection,0,None,pickEvery,False,'weight')
+	X = rootnp.rec2array(treeArray)
+	
+	df = pd.DataFrame(X,columns=brancharray)
+	corrmat = df.corr(method='pearson', min_periods=1)#'spearman'
+	
+	fig, ax1 = plt.subplots(ncols=1, figsize=(12,10))
+	opts = {'cmap': plt.get_cmap("RdBu"),'vmin': corrmat.min().min(), 'vmax': corrmat.max().max()}
+	heatmap1 = ax1.pcolor(corrmat, **opts)
+	plt.colorbar(heatmap1, ax=ax1)
+	ax1.set_title("Correlation Matrix {%s}"%selection)
+	labels = corrmat.columns.values
+	for ax in (ax1,):
+		# shift location of ticks to center of the bins
+		ax.set_xticks(np.arange(len(labels))+0.5, minor=False)
+		ax.set_yticks(np.arange(len(labels))+0.5, minor=False)
+		ax.set_xticklabels(labels, minor=False, ha='right', rotation=70)
+		ax.set_yticklabels(labels, minor=False)
+	fig.tight_layout()
+	
+	log.info("Dumping output in %s" %outfile)
+	fig.savefig(outfile)
+
 #ROOT.gROOT.SetBatch(True)
 #Draw2dCorrHistFromROOT("./DiscriminatorOutputs/discriminator_ntuple.root","tree","./test.png","SuperMVA_BEST_RF","SuperMVA_withAll_BEST_GBC","SuperMVA_BEST_RF","SuperMVA_withAll_BEST_GBC", "flavour == 4",1,50,0,1,0,1)	
-	
+#DrawCorrelationMatrixFromROOT("./DiscriminatorOutputs/discriminator_ntuple.root","tree","./test2.png",["SuperMVA_BEST_RF","SuperMVA_withAll_BEST_GBC"],"flavour == 4",50)	
 	
 	
 	

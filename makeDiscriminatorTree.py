@@ -80,7 +80,7 @@ outfile = TFile(args.OutputDir+args.OutputFile,'RECREATE')
 tree = input_tree.CloneTree(0)
 
 Types = [d for d in os.listdir(args.Typesdir) if not d.endswith('.pkl')]
-clf_names = ['GBC','RF','SVM','SGD','kNN','NB','MLP']
+clf_names = ['GBC','RF','MLP','SVM','SGD','kNN','NB']
 
 dict_Leaves = {}
 
