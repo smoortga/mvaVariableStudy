@@ -192,4 +192,51 @@ def DrawDiscriminatorDistributions(hist_dict,outdir,outname):
 		del hist_sig
 		del hist_bkg
 		del line
+
+	
+def Draw2dCorrHistFromROOT(infile,intree,outfile,branchname1,branchname2,axisname1,axisname2, selection="", logz = 1, nbins = 50, xmin = 0, xmax = 1, ymin = 0, ymax = 1):
+	"""
+	Goal: Draw 2d correlation histogram between two branches of a flat tree "intree" in file "infile" to output file "outfile" with a selection if needed
+	"""
+	tfile = ROOT.TFile(infile)
+	ttree = tfile.Get(intree)
+	hist = ROOT.TH2D("hist",";"+axisname1+";"+axisname2+";Normalized Entries/("+str(float(xmax-xmin)/float(nbins))+"#times"+str(float(ymax-ymin)/float(nbins))+")",nbins,xmin,xmax,nbins,ymin,ymax)
+	
+	ROOT.gStyle.SetOptStat(0)
+	c = ROOT.TCanvas("c","c",900,800)
+	c.SetLogz(logz)
+	ROOT.gPad.SetMargin(0.15,0.2,0.15,0.05)
+	
+	ttree.Draw(branchname1+":"+branchname2+">>hist",selection,"colz")
+	
+	hist.Scale(1/hist.Integral())
+	hist.GetXaxis().CenterTitle()
+	hist.GetXaxis().SetTitleOffset(1.3)
+	hist.GetXaxis().SetTitleSize(0.04)
+	hist.GetYaxis().CenterTitle()
+	hist.GetYaxis().SetTitleOffset(1.3)
+	hist.GetYaxis().SetTitleSize(0.04)
+	hist.GetZaxis().CenterTitle()
+	hist.GetZaxis().SetTitleOffset(1.4)
+	hist.GetZaxis().SetTitleSize(0.04)
+	
+	CorrFac = hist.GetCorrelationFactor()
+	ROOT.gStyle.SetTextFont(42)
+	t = ROOT.TPaveText(0.2,0.84,0.4,0.94,"NBNDC")
+	t.SetTextAlign(11)
+	t.SetFillStyle(0)
+	t.SetBorderSize(0)
+	t.AddText('#rho = %.3f'%CorrFac)
+	t.Draw('same')
+	
+	c.SaveAs(outfile)
+
+#ROOT.gROOT.SetBatch(True)
+#Draw2dCorrHistFromROOT("./DiscriminatorOutputs/discriminator_ntuple.root","tree","./test.png","SuperMVA_BEST_RF","SuperMVA_withAll_BEST_GBC","SuperMVA_BEST_RF","SuperMVA_withAll_BEST_GBC", "flavour == 4",1,50,0,1,0,1)	
+	
+	
+	
+	
+	
+	
 	
