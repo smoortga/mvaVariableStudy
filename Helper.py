@@ -209,7 +209,7 @@ def Draw2dCorrHistFromROOT(infile,intree,outfile,branchname1,branchname2,axisnam
 	c.SetLogz(logz)
 	ROOT.gPad.SetMargin(0.15,0.2,0.15,0.05)
 	
-	ttree.Draw(branchname1+":"+branchname2+">>hist",selection,"colz")
+	ttree.Draw(branchname2+":"+branchname1+">>hist",selection,"colz") #y:x
 	
 	hist.Scale(1/hist.Integral())
 	hist.GetXaxis().CenterTitle()
