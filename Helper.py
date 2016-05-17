@@ -147,9 +147,9 @@ def DrawDiscriminatorDistributions(hist_dict,outdir,outname):
 		hist_bkg.GetXaxis().SetTitleOffset(1.4)
 		hist_bkg.GetXaxis().SetTitleSize(0.045)		
 		hist_bkg.SetLineWidth(2)
-		hist_bkg.SetLineColor(ROOT.kRed);
-		hist_bkg.SetFillColor(ROOT.kRed);
-   		hist_bkg.SetFillStyle(3004);
+		hist_bkg.SetLineColor(ROOT.kRed)
+		hist_bkg.SetFillColor(ROOT.kRed)
+   		hist_bkg.SetFillStyle(3004)
 		l.AddEntry(hist_bkg,"Background","f")
 		hist_bkg.Draw("same hist")
 		
@@ -258,13 +258,157 @@ def DrawCorrelationMatrixFromROOT(infile,intree,outfile,brancharray,selection=""
 	
 	log.info("Dumping output in %s" %outfile)
 	fig.savefig(outfile)
+	
+	
+def DrawDiscrAndROCFromROOT(infile,intree,outfile,branchname,axisname,signalselection,backgroundselection,logy = 1, nbins = 50, xmin = 0, xmax = 1):
+	tfile = ROOT.TFile(infile)
+	ttree = tfile.Get(intree)
+	hist_sig = ROOT.TH1D("hist_sig",";"+axisname+";Normalized Entries/("+str(float(xmax-xmin)/float(nbins))+")",nbins,xmin,xmax)
+	hist_bkg = ROOT.TH1D("hist_bkg",";"+axisname+";Normalized Entries/("+str(float(xmax-xmin)/float(nbins))+")",nbins,xmin,xmax)
+	
+	ttree.Draw(branchname+" >> hist_sig",signalselection)
+	ttree.Draw(branchname+" >> hist_bkg",backgroundselection)
+	
+	ROOT.gStyle.SetOptStat(0)
+	c = ROOT.TCanvas("c","c",1250,650)
+	c.Divide(2,1)
+	
+	#
+	#	DRAW DISCRIMINATOR OVERLAYS
+	#
+	c.cd(1)
+	ROOT.gPad.SetMargin(0.15,0.07,0.15,0.05)
+	ROOT.gPad.SetLogy(logy)
+	
+	l1 = ROOT.TLegend(0.40,0.80,0.70,0.92)
+	l1.SetFillColor(0)
+	l1.SetFillStyle(0)
+	l1.SetFillStyle(0)
+	
+	hist_sig.Scale(1./hist_sig.Integral())
+	hist_sig.GetYaxis().SetRangeUser(10./ttree.GetEntriesFast(),1)
+	hist_sig.Draw("hist")
+	hist_sig.SetLineWidth(2)
+	hist_sig.SetLineColor(1)
+	hist_sig.SetFillColor(ROOT.kBlue-6)
+	hist_sig.GetXaxis().SetTitleOffset(1.4)
+	hist_sig.GetXaxis().SetTitleSize(0.045)
+	hist_sig.GetYaxis().SetTitleOffset(1.4)
+	hist_sig.GetYaxis().SetTitleSize(0.045)
+	l1.AddEntry(hist_sig,"Signal","f")
+	
+	hist_bkg.Scale(1./hist_bkg.Integral())
+	hist_bkg.SetLineWidth(2)
+	hist_bkg.SetLineColor(ROOT.kRed)
+	hist_bkg.SetFillColor(ROOT.kRed)
+	hist_bkg.SetFillStyle(3004)
+	hist_bkg.Draw("hist same")
+	
+	l1.AddEntry(hist_bkg,"Background","f")
+	
+	l1.Draw("same")
+	
+	
+	
+	#
+	#	DRAW ROC CURVE
+	#
+	treeArray_sig = rootnp.root2array(infile,intree,branchname,signalselection,0,None,None,False,'weight')
+	X_sig = [i for i in treeArray_sig] #rootnp.rec2array(treeArray_sig)
+	treeArray_bkg = rootnp.root2array(infile,intree,branchname,backgroundselection,0,None,None,False,'weight')
+	X_bkg = [i for i in treeArray_bkg]#rootnp.rec2array(treeArray_bkg)
+	
+	X = np.concatenate((X_sig,X_bkg))
+	y = np.concatenate((np.ones(len(X_sig)),np.zeros(len(X_bkg))))
+	
+	fpr, tpr, thresholds = roc_curve(y, X)
+	AUC = 1-roc_auc_score(y,X)
+	
+	c.cd(2)
+	ROOT.gPad.SetMargin(0.15,0.07,0.15,0.05)
+	ROOT.gPad.SetLogy(logy)
+	ROOT.gPad.SetGrid(1,1)
+	ROOT.gStyle.SetGridColor(17)
+	
+	roc = ROOT.TGraph(len(fpr),tpr,fpr)
+	
+	roc.SetLineColor(2)
+	roc.SetLineWidth(2)
+	roc.SetTitle(";Signal efficiency; Background efficiency")
+	roc.GetXaxis().SetTitleOffset(1.4)
+	roc.GetXaxis().SetTitleSize(0.045)
+	roc.GetYaxis().SetTitleOffset(1.4)
+	roc.GetYaxis().SetTitleSize(0.045)
+	roc.GetXaxis().SetRangeUser(0,1)
+	roc.GetYaxis().SetRangeUser(0.0005,1)
+	roc.Draw("AL")
+	
+	ROOT.gStyle.SetTextFont(42)
+	t = ROOT.TPaveText(0.2,0.84,0.4,0.94,"NBNDC")
+	t.SetTextAlign(11)
+	t.SetFillStyle(0)
+	t.SetBorderSize(0)
+	t.AddText('AUC = %.3f'%AUC)
+	t.Draw('same')
+	
+	c.SaveAs(outfile)
 
+
+
+def DrawROCOverlaysFromROOT(infile,intree,outfile,brancharray,signalselection,backgroundselection,logy = 1):
+	GraphArray = {}
+	colors = [1,2,3,4,5,6,7,8,9]
+	for br in brancharray:
+		treeArray_sig = rootnp.root2array(infile,intree,br,signalselection,0,None,None,False,'weight')
+		X_sig = [i for i in treeArray_sig]
+		treeArray_bkg = rootnp.root2array(infile,intree,br,backgroundselection,0,None,None,False,'weight')
+		X_bkg = [i for i in treeArray_bkg]
+		
+		X = np.concatenate((X_sig,X_bkg))
+		y = np.concatenate((np.ones(len(X_sig)),np.zeros(len(X_bkg))))
+		fpr, tpr, thresholds = roc_curve(y, X)
+		AUC = 1-roc_auc_score(y,X)
+		
+		GraphArray[br] = (ROOT.TGraph(len(fpr),tpr,fpr),AUC)
+	
+	c = ROOT.TCanvas("c","c",800,700)
+	ROOT.gPad.SetMargin(0.15,0.07,0.15,0.05)
+	ROOT.gPad.SetLogy(logy)
+	ROOT.gPad.SetGrid(1,1)
+	ROOT.gStyle.SetGridColor(17)
+	l = ROOT.TLegend(0.17,0.5,0.6,0.9)
+	l.SetFillStyle(0)
+	l.SetBorderSize(0)
+	
+	mg = ROOT.TMultiGraph("mg","")
+	
+	color_idx = 1
+	for name,gr in GraphArray.iteritems():
+		gr[0].SetLineColor(colors[color_idx])
+		gr[0].SetLineWidth(2)
+		mg.Add(gr[0])
+		l.AddEntry(gr[0],"%s (AUC=%.4f)"%(name,gr[1]),"l")
+		color_idx += 1
+	mg.Draw("AL")
+	mg.GetXaxis().SetTitle("Signal efficiency")
+	mg.GetYaxis().SetTitle("Background efficiency")
+	mg.GetXaxis().SetTitleOffset(1.4)
+	mg.GetXaxis().SetTitleSize(0.045)
+	mg.GetYaxis().SetTitleOffset(1.4)
+	mg.GetYaxis().SetTitleSize(0.045)
+	
+	l.Draw("same")
+	
+	c.SaveAs(outfile)
+		
+		
+		
+		
+		
 #ROOT.gROOT.SetBatch(True)
 #Draw2dCorrHistFromROOT("./DiscriminatorOutputs/discriminator_ntuple.root","tree","./test.png","SuperMVA_BEST_RF","SuperMVA_withAll_BEST_GBC","SuperMVA_BEST_RF","SuperMVA_withAll_BEST_GBC", "flavour == 4",1,50,0,1,0,1)	
 #DrawCorrelationMatrixFromROOT("./DiscriminatorOutputs/discriminator_ntuple.root","tree","./test2.png",["SuperMVA_BEST_RF","SuperMVA_withAll_BEST_GBC"],"flavour == 4",50)	
-	
-	
-	
-	
-	
-	
+#DrawDiscrAndROCFromROOT("./DiscriminatorOutputs/discriminator_ntuple.root","tree","./test.png","SuperMVA_withAll_BEST_GBC","SuperMVA_withAll_BEST_GBC","flavour == 5","flavour != 5 && flavour != 4")	
+#DrawDiscrAndROCFromROOT("./DiscriminatorOutputs/discriminator_ntuple.root","tree","./test.png","SuperMVA_BEST_RF","SuperMVA_BEST_RF","flavour == 5","flavour != 5 && flavour != 4")	
+#DrawROCOverlaysFromROOT("./DiscriminatorOutputs/discriminator_ntuple.root","tree","./test.png",["SuperMVA_BEST_RF","SuperMVA_withAll_BEST_GBC"],"flavour == 5","flavour != 5 && flavour != 4")
+

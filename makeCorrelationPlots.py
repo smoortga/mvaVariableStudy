@@ -68,7 +68,12 @@ for t in Types:
 		Draw2dCorrHistFromROOT(args.InputFile,args.InputTree,args.OutputDir+"Types/"+typ+"/Correlation2DHist_S_"+couple[0].split("_")[1]+"_"+couple[1].split("_")[1]+args.OutputExt,couple[0],couple[1],couple[0],couple[1],signal_selection)
 		Draw2dCorrHistFromROOT(args.InputFile,args.InputTree,args.OutputDir+"Types/"+typ+"/Correlation2DHist_B_"+couple[0].split("_")[1]+"_"+couple[1].split("_")[1]+args.OutputExt,couple[0],couple[1],couple[0],couple[1],bkg_selection)
 	
-		
+	for clf in clf_names:
+		DrawDiscrAndROCFromROOT(args.InputFile,args.InputTree,args.OutputDir+"Types/"+typ+"/DiscriminantOverlayAndROC_"+typ+"_"+clf+args.OutputExt,typ+"_"+clf,typ+"_"+clf,signal_selection,bkg_selection)
+	
+	DrawROCOverlaysFromROOT(args.InputFile,args.InputTree,args.OutputDir+"Types/"+typ+"/ROCOverlays_"+typ+args.OutputExt,disc_array,signal_selection,bkg_selection)
+	
+	
 #******************************************************
 #
 # Correlation between all Types (best MVAs)
@@ -93,6 +98,10 @@ for couple in combos:
 	Draw2dCorrHistFromROOT(args.InputFile,args.InputTree,args.OutputDir+"Types/Correlation2DHist_BEST_S_"+couple[0].split("_")[0]+"_"+couple[1].split("_")[0]+args.OutputExt,couple[0],couple[1],couple[0],couple[1],signal_selection)
 	Draw2dCorrHistFromROOT(args.InputFile,args.InputTree,args.OutputDir+"Types/Correlation2DHist_BEST_B_"+couple[0].split("_")[0]+"_"+couple[1].split("_")[0]+args.OutputExt,couple[0],couple[1],couple[0],couple[1],bkg_selection)	
 
+for name in best_names:
+	DrawDiscrAndROCFromROOT(args.InputFile,args.InputTree,args.OutputDir+"Types/DiscriminantOverlayAndROC_"+name+args.OutputExt,name,name,signal_selection,bkg_selection)
+
+DrawROCOverlaysFromROOT(args.InputFile,args.InputTree,args.OutputDir+"Types/ROCOverlays"+args.OutputExt,best_names,signal_selection,bkg_selection)
 
 #******************************************************
 #
@@ -123,6 +132,10 @@ for couple in combos:
 	Draw2dCorrHistFromROOT(args.InputFile,args.InputTree,args.OutputDir+"SuperMVA/AllClassifiers/withoutAll/Correlation2DHist_SuperMVA_withoutAll_S_"+couple[0].split("_")[-1]+"_"+couple[1].split("_")[-1]+args.OutputExt,couple[0],couple[1],couple[0],couple[1],signal_selection)
 	Draw2dCorrHistFromROOT(args.InputFile,args.InputTree,args.OutputDir+"SuperMVA/AllClassifiers/withoutAll/Correlation2DHist_SuperMVA_withoutAll_B_"+couple[0].split("_")[-1]+"_"+couple[1].split("_")[-1]+args.OutputExt,couple[0],couple[1],couple[0],couple[1],bkg_selection)	
 
+for name in supermva_withoutall_names:
+	DrawDiscrAndROCFromROOT(args.InputFile,args.InputTree,args.OutputDir+"SuperMVA/AllClassifiers/withoutAll/DiscriminantOverlayAndROC_"+name+args.OutputExt,name,name,signal_selection,bkg_selection)
+
+DrawROCOverlaysFromROOT(args.InputFile,args.InputTree,args.OutputDir+"SuperMVA/AllClassifiers/withoutAll/ROCOverlays_withoutAll"+args.OutputExt,supermva_withoutall_names,signal_selection,bkg_selection)
 
 
 #with all
@@ -134,6 +147,10 @@ for couple in combos:
 	Draw2dCorrHistFromROOT(args.InputFile,args.InputTree,args.OutputDir+"SuperMVA/AllClassifiers/withAll/Correlation2DHist_SuperMVA_withAll_S_"+couple[0].split("_")[-1]+"_"+couple[1].split("_")[-1]+args.OutputExt,couple[0],couple[1],couple[0],couple[1],signal_selection)
 	Draw2dCorrHistFromROOT(args.InputFile,args.InputTree,args.OutputDir+"SuperMVA/AllClassifiers/withAll/Correlation2DHist_SuperMVA_withAll_B_"+couple[0].split("_")[-1]+"_"+couple[1].split("_")[-1]+args.OutputExt,couple[0],couple[1],couple[0],couple[1],bkg_selection)	
 
+for name in supermva_withall_names:
+	DrawDiscrAndROCFromROOT(args.InputFile,args.InputTree,args.OutputDir+"SuperMVA/AllClassifiers/withAll/DiscriminantOverlayAndROC_"+name+args.OutputExt,name,name,signal_selection,bkg_selection)
+
+DrawROCOverlaysFromROOT(args.InputFile,args.InputTree,args.OutputDir+"SuperMVA/AllClassifiers/withAll/ROCOverlays_withAll"+args.OutputExt,supermva_withall_names,signal_selection,bkg_selection)
 
 #******************************************************
 #
@@ -147,13 +164,16 @@ if not os.path.isdir(args.OutputDir+"SuperMVA/BestClassifier/withoutAll"): os.ma
 
 supermva_withoutall_best_name = ""
 supermva_withall_best_name = ""
+all_1step_best_name = ""
 for b in total_branch_list:
 	name = b.GetName()
 	if name.find("SuperMVA") != -1 and name.find("BEST") != -1 and name.find("withAll") == -1:
 		supermva_withoutall_best_name = name
 	if name.find("SuperMVA") != -1 and name.find("BEST") != -1 and name.find("withAll") != -1:
 		supermva_withall_best_name = name 
-
+	if name.find("All") != -1 and name.find("BEST") != -1:
+		all_1step_best_name =  name
+	
 #without All --> coorelation 2d histograms between best superMVA without all and its inputs (best mvas for each type)
 for best in best_names:
 	Draw2dCorrHistFromROOT(args.InputFile,args.InputTree,args.OutputDir+"SuperMVA/BestClassifier/withoutAll/Correlation2DHist_S_BEST_SuperMVA_withoutAll_"+best+args.OutputExt,supermva_withoutall_best_name,best,supermva_withoutall_best_name,best,signal_selection)
@@ -169,6 +189,10 @@ for best in best_names:
 Draw2dCorrHistFromROOT(args.InputFile,args.InputTree,args.OutputDir+"SuperMVA/BestClassifier/Correlation2DHist_S_BEST_SuperMVA_withAll_withoutAll"+args.OutputExt,supermva_withall_best_name,supermva_withoutall_best_name,supermva_withall_best_name,supermva_withoutall_best_name,signal_selection)
 Draw2dCorrHistFromROOT(args.InputFile,args.InputTree,args.OutputDir+"SuperMVA/BestClassifier/Correlation2DHist_B_BEST_SuperMVA_withAll_withoutAll"+args.OutputExt,supermva_withall_best_name,supermva_withoutall_best_name,supermva_withall_best_name,supermva_withoutall_best_name,bkg_selection)	
 
+DrawDiscrAndROCFromROOT(args.InputFile,args.InputTree,args.OutputDir+"SuperMVA/BestClassifier/DiscriminantOverlayAndROC_"+supermva_withoutall_best_name+args.OutputExt,supermva_withoutall_best_name,supermva_withoutall_best_name,signal_selection,bkg_selection)
+DrawDiscrAndROCFromROOT(args.InputFile,args.InputTree,args.OutputDir+"SuperMVA/BestClassifier/DiscriminantOverlayAndROC_"+supermva_withall_best_name+args.OutputExt,supermva_withall_best_name,supermva_withall_best_name,signal_selection,bkg_selection)
+
+DrawROCOverlaysFromROOT(args.InputFile,args.InputTree,args.OutputDir+"SuperMVA/BestClassifier/ROCOverlays_SuperMVA"+args.OutputExt,[supermva_withoutall_best_name,supermva_withall_best_name,all_1step_best_name],signal_selection,bkg_selection)
 
 #******************************************************
 #
