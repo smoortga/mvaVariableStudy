@@ -344,7 +344,7 @@ else: pickle.dump( best_clf_SuperMVA_with_name, open( "./SuperMVA/BestClassifier
 log.info('***********************************************************************************************************************')
 log.info('%s Done %s: Starting to revalidate SuperMVA' %(Fore.RED,Fore.WHITE))
 
-SuperMVA_disc = best_clf_SuperMVA.predict_proba(X)[:,1]
+SuperMVA_disc = best_clf_SuperMVA.predict_proba(X_test)[:,1]
 y_SuperMVA = y
 SuperMVA_fpr, SuperMVA_tpr, SuperMVA_thresholds = roc_curve(y_SuperMVA, SuperMVA_disc)
 
