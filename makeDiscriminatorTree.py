@@ -38,6 +38,7 @@ parser.add_argument('--OutputDir', default = os.getcwd()+'/DiscriminatorOutputs/
 parser.add_argument('--OutputFile', default = 'discriminator_ntuple.root')
 parser.add_argument('--pickEvery', type=int, default=None, help='pick one element every ...')
 parser.add_argument('--elements_per_sample', type=int, default=None, help='consider only the first ... elements in the sample')
+parser.add_argument('--includeCombinedMVA', action='store_true')
 
 args = parser.parse_args()
 
@@ -54,6 +55,8 @@ Types = [d for d in os.listdir(args.Typesdir) if not d.endswith('.pkl')]
 for t in Types:
 	typedir = args.Typesdir+t+"/"
 	dict_pickles[t] = pickle.load(open(typedir + "TrainingOutputs.pkl","r"))
+	if args.includeCombinedMVA:dict_pickles[t+"_COMB"] = pickle.load(open(typedir + "TrainingOutputs_CombinedMVA.pkl","r"))
+	if args.includeCombinedMVA: dict_pickles[t+"_COMB_BEST"] = pickle.load(open(typedir + "BestClassifier_CombinedMVA.pkl","r"))
 dict_pickles["Best"] = pickle.load(open("./Types/BestClassifiers.pkl","r"))
 
 dict_pickles["SuperMVA"] = pickle.load(open("./SuperMVA/TrainingOutputs.pkl","r"))
@@ -88,11 +91,18 @@ dict_Leaves = {}
 for t in Types:
 	for c in clf_names:
 		dict_Leaves[t+'_'+c] = array('d',[0])
+		if args.includeCombinedMVA: dict_Leaves[t+'_COMB_'+c] = array('d',[0])
 
 # best classifier for each type
 for t in Types:
 	best_clf_name = dict_pickles["Best"][t][0]
 	dict_Leaves[t+'_BEST_'+best_clf_name] = array('d',[0])
+
+# best classifier for each CombinedMVA
+if args.includeCombinedMVA:
+	for t in Types:
+		best_clf_name_combined = dict_pickles[t+"_COMB_BEST"]['CombinedMVA'][0]
+		dict_Leaves[t+'_COMB_BEST_'+best_clf_name_combined] = array('d',[0])
 
 # superMVA all classifiers
 for c in clf_names:
@@ -124,10 +134,17 @@ dict_clf = {}
 for t in Types:
 	for clf_name, clf in dict_pickles[t].iteritems():
 		dict_clf[t+'_'+clf_name] = clf[0]
+	if args.includeCombinedMVA:
+		for clf_name, clf in dict_pickles[t+"_COMB"].iteritems():
+			dict_clf[t+'_COMB_'+clf_name] = clf[0]
 
 for t in Types:
 	best_clf_name = dict_pickles["Best"][t][0]
 	dict_clf[t+'_BEST_'+best_clf_name] = dict_pickles["Best"][t][1]
+	if args.includeCombinedMVA:
+		best_clf_name_combined = dict_pickles[t+"_COMB_BEST"]['CombinedMVA'][0]
+		dict_clf[t+'_COMB_BEST_'+best_clf_name_combined] = dict_pickles[t+"_COMB_BEST"]['CombinedMVA'][1]
+	
 
 for c in clf_names:
 	dict_clf['SuperMVA_'+c] = dict_pickles["SuperMVA"][c][0]
@@ -164,6 +181,36 @@ for t in Types:
 	best_classifier = dict_clf[t+'_BEST_'+best_clf_name]
 	log.info('Type: %s%s%s, Best Classifier is: %s%s%s' %(Fore.RED,t,Fore.WHITE,Fore.GREEN,best_clf_name,Fore.WHITE))
 	dict_Discriminators[t+'_BEST_'+best_clf_name] = best_classifier.predict_proba(X)[:,1] 
+
+
+#******************************************************
+# CombinedMVA
+#******************************************************
+
+log.info('Processing: %sCombinedMVA%s' %(Fore.BLUE,Fore.WHITE))
+nen = len(dict_Discriminators['All_GBC'])
+ordered_MVAs = ['GBC','RF','SVM','SGD','kNN','NB','MLP']
+for t in Types:
+	X = []
+	
+	for i in range(nen):
+		event = []
+		for MVA_name in ordered_MVAs:
+			disc_buffer = [value for key,value in dict_Discriminators.iteritems() if t+"_"+MVA_name in key][0]
+			event.append(disc_buffer[i])
+		X.append(event)
+	X = np.asarray(X)
+
+	for c in clf_names:
+		log.info('Type: %s%s CombinedMVA%s, Classifier: %s%s%s' %(Fore.RED,t,Fore.WHITE,Fore.GREEN,c,Fore.WHITE))
+		classifier = dict_clf[t+'_COMB_'+c]
+		dict_Discriminators[t+'_COMB_'+c] = classifier.predict_proba(X)[:,1]
+	
+	best_clf_name_combined = dict_pickles[t+"_COMB_BEST"]['CombinedMVA'][0]
+	log.info('Type: %s%s CombinedMVA%s, Best Classifier is: %s%s%s' %(Fore.RED,t,Fore.WHITE,Fore.GREEN,best_clf_name_combined,Fore.WHITE))
+	best_classifier = dict_clf[t+'_COMB_BEST_'+best_clf_name_combined]
+	dict_Discriminators[t+'_COMB_BEST_'+best_clf_name_combined] = best_classifier.predict_proba(X)[:,1]
+
 
 
 #******************************************************

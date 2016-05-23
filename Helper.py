@@ -411,4 +411,4 @@ def DrawROCOverlaysFromROOT(infile,intree,outfile,brancharray,signalselection,ba
 #DrawDiscrAndROCFromROOT("./DiscriminatorOutputs/discriminator_ntuple.root","tree","./test.png","SuperMVA_withAll_BEST_GBC","SuperMVA_withAll_BEST_GBC","flavour == 5","flavour != 5 && flavour != 4")	
 #DrawDiscrAndROCFromROOT("./DiscriminatorOutputs/discriminator_ntuple.root","tree","./test.png","SuperMVA_BEST_RF","SuperMVA_BEST_RF","flavour == 5","flavour != 5 && flavour != 4")	
 #DrawROCOverlaysFromROOT("./DiscriminatorOutputs/discriminator_ntuple.root","tree","./test.png",["SuperMVA_BEST_RF","SuperMVA_withAll_BEST_GBC"],"flavour == 5","flavour != 5 && flavour != 4")
-
+#DrawROCOverlaysFromROOT("./DiscriminatorOutputs/discriminator_ntuple.root","tree","./test.png",["All_BEST_GBC","All_COMB_BEST_GBC"],"flavour == 5","flavour != 5 && flavour != 4")
