@@ -53,3 +53,8 @@ for t in Types:
 	compare_array.append([i for i in best_names_comb if typ in i][0])
 	
 	DrawROCOverlaysFromROOT(args.InputFile,args.InputTree,args.OutputDir+"Types/"+typ+"/ROCOverlays_CombinedMVAGains_"+typ+args.OutputExt,compare_array,signal_selection,bkg_selection)
+
+
+if not os.path.isdir(os.getcwd().split("/CTag/")[0]+"/public_html/"+os.getcwd().split("/CTag/")[1]+"/"): os.makedirs(os.getcwd().split("/CTag/")[0]+"/public_html/"+os.getcwd().split("/CTag/")[1]+"/")
+os.system("rsync -aP %s %s" %(args.OutputDir,os.getcwd().split("/CTag/")[0]+"/public_html/"+os.getcwd().split("/CTag/")[1]+"/"))
+os.system("python ~/web.py -c 2 -s 450")
