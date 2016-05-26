@@ -16,6 +16,7 @@ import copy as cp
 import math
 import pandas as pd
 from operator import itemgetter
+from array import array
 
 from sklearn.metrics import roc_curve
 from sklearn.model_selection import GridSearchCV
@@ -30,7 +31,7 @@ from sklearn.naive_bayes import GaussianNB
 from sklearn.neural_network import MLPClassifier
 
 
-def BestClassifier(Classifiers,FoM):
+def BestClassifier(Classifiers,FoM,typ_name='',features_array=[],signal_selection='',bkg_selection='',DumpDiscriminators=False,DumpFile=""):
 	"""
 	Goal: select from a set of classifier dictionaries (containing the name, object,discriminators, tpr, ...) the best one based on Figure of Merit FoM
 	returns: name_of_best_clf,best_clf_object 
@@ -87,7 +88,51 @@ def BestClassifier(Classifiers,FoM):
 			Acc = [float(i+j)/float(i+j+k+l) if (i+j+k+l !=0) else 0 for i,j,k,l in zip(tp,tn,fp,fn)]
 			ACC_tmp[name] = Acc[dx] # Accuracy at [atEff]% efficiency
 			
+	
+	if DumpDiscriminators:
+		XX = rootnp.root2array(DumpFile,'tree',features_array,None,0,None,None,False,'weight')
+		XX = rootnp.rec2array(XX)
+		
+		dict_Discriminators = {}
+		classifier = Classifiers[max(AUC_tmp.iteritems(), key=itemgetter(1))[0]][0]
+		best_mva_name = max(AUC_tmp.iteritems(), key=itemgetter(1))[0]
+		dict_Discriminators[typ_name+'_BEST_'+best_mva_name] = classifier.predict_proba(XX)[:,1]
+		
+		inputfile = ROOT.TFile(DumpFile)
+		inputtree = inputfile.Get('tree')
+		inputtree.SetBranchStatus("*",1)
+		branch_list = inputtree.GetListOfBranches()
+		branch_name_list = [d.GetName() for d in branch_list]
+		branch_name = typ_name+'_BEST_'
+		if any(branch_name in s for s in branch_name_list):
+			inputtree.SetBranchStatus(branch_name+"*",0)
+			
+		newfile = ROOT.TFile(DumpFile.split('.root')[0]+'_tmp.root','RECREATE')
+		newtree = inputtree.CloneTree(0)
+		
+		dict_Leaves = {}
+		branch_name = typ_name+'_BEST_'+best_mva_name
+		dict_Leaves[branch_name] = array('d',[0])
+		newtree.Branch(branch_name, dict_Leaves[branch_name], branch_name + "/D")
+		
+		
+		log.info('%s: Starting to process the output tree' %name)
+		nEntries = inputtree.GetEntries()
+		for i in range(nEntries):
+			if i%1000 == 0: log.info('Processing event %s/%s (%s%.2f%s%%)' %(i,nEntries,Fore.GREEN,100*float(i)/float(nEntries),Fore.WHITE))
+			inputtree.GetEntry(i)
+			for key,value in dict_Discriminators.iteritems():
+				dict_Leaves[key][0] = value[i]
+			newtree.Fill()
 
+		newtree.Write()
+		newfile.Close()
+		inputfile.Close()
+		
+		os.system('cp %s %s'%(DumpFile.split('.root')[0]+'_tmp.root',DumpFile))
+		os.system('rm %s'%DumpFile.split('.root')[0]+'_tmp.root')
+
+		log.info('Done: output file dumped in %s' %DumpFile) 
 
 	if FoM == "AUC": return max(AUC_tmp.iteritems(), key=itemgetter(1))[0],Classifiers[max(AUC_tmp.iteritems(), key=itemgetter(1))[0]][0]
 	elif FoM == "OOP": return max(OOP_tmp.iteritems(), key=itemgetter(1))[0],Classifiers[max(OOP_tmp.iteritems(), key=itemgetter(1))[0]][0]
@@ -95,7 +140,210 @@ def BestClassifier(Classifiers,FoM):
 	elif FoM == "ACC": return max(ACC_tmp.iteritems(), key=itemgetter(1))[0],Classifiers[max(ACC_tmp.iteritems(), key=itemgetter(1))[0]][0]
 	
 
+def Optimize(name,X,y,features_array,signal_selection,bkg_selection,DumpDiscriminators=False,DumpFile="",Optmization_fraction = 0.1,train_test_splitting=0.2,verbosity=False):
+	X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=train_test_splitting)
+	X_train_skimmed = np.asarray([X_train[i] for i in range(len(X_train)) if i%int(1./Optmization_fraction) == 0]) # optimization only on 10 %
+	y_train_skimmed = np.asarray([y_train[i] for i in range(len(y_train)) if i%int(1./Optmization_fraction) == 0])
+	
+	
+	Classifiers = {}
+	
+	#
+	# GBC
+	#
+	log.info('%s %s %s: Starting to process %s Gradient Boosting Classifier %s' % (Fore.GREEN,name,Fore.WHITE,Fore.BLUE,Fore.WHITE))
+	
+	gbc_parameters = {'n_estimators':list([50,100,200]), 'max_depth':list([5,10,15]),'min_samples_split':list([int(0.005*len(X_train_skimmed)), int(0.01*len(X_train_skimmed))]), 'learning_rate':list([0.05,0.1])}
+	gbc_clf = GridSearchCV(GradientBoostingClassifier(), gbc_parameters, n_jobs=-1, verbose=3, cv=2) if verbosity else GridSearchCV(GradientBoostingClassifier(), gbc_parameters, n_jobs=-1, verbose=0, cv=2)
+	gbc_clf.fit(X_train_skimmed,y_train_skimmed)
+	
+	gbc_best_clf = gbc_clf.best_estimator_
+	if verbosity:
+		log.info('Parameters of the best classifier: %s' % str(gbc_best_clf.get_params()))
+	gbc_best_clf.verbose = 2
+	gbc_best_clf.fit(X_train,y_train)
+	gbc_disc = gbc_best_clf.predict_proba(X_test)[:,1]
+	gbc_fpr, gbc_tpr, gbc_thresholds = roc_curve(y_test, gbc_disc)
+	
+	Classifiers["GBC"]=(gbc_best_clf,y_test,gbc_disc,gbc_fpr,gbc_tpr,gbc_thresholds)
+	
+	
+	
+	#
+	# Randomized Forest
+	#
+	log.info('%s %s %s: Starting to process %s Randomized Forest Classifier %s' % (Fore.GREEN,name,Fore.WHITE,Fore.BLUE,Fore.WHITE))
+	
+	rf_parameters = {'n_estimators':list([50,100,200]), 'max_depth':list([5,10,15]),'min_samples_split':list([int(0.005*len(X_train_skimmed)), int(0.01*len(X_train_skimmed))]), 'max_features':list(["sqrt","log2",0.5])}
+	rf_clf = GridSearchCV(RandomForestClassifier(n_jobs=5), rf_parameters, n_jobs=-1, verbose=3, cv=2) if verbosity else GridSearchCV(RandomForestClassifier(n_jobs=5), rf_parameters, n_jobs=-1, verbose=0, cv=2)
+	rf_clf.fit(X_train_skimmed,y_train_skimmed)
+	
+	rf_best_clf = rf_clf.best_estimator_
+	if verbosity:
+		log.info('Parameters of the best classifier: %s' % str(rf_best_clf.get_params()))
+	rf_best_clf.verbose = 2
+	rf_best_clf.fit(X_train,y_train)
+	rf_disc = rf_best_clf.predict_proba(X_test)[:,1]
+	rf_fpr, rf_tpr, rf_thresholds = roc_curve(y_test, rf_disc)
+	
+	Classifiers["RF"]=(rf_best_clf,y_test,rf_disc,rf_fpr,rf_tpr,rf_thresholds)
+	
+	
+	
+	#
+	# Stochastic Gradient Descent
+	#
+	log.info('%s %s %s: Starting to process %s Stochastic Gradient Descent %s' % (Fore.GREEN,name,Fore.WHITE,Fore.BLUE,Fore.WHITE))
+	
+	sgd_parameters = {'loss':list(['log','modified_huber']), 'penalty':list(['l2','l1','elasticnet']),'alpha':list([0.0001,0.00005,0.001]), 'n_iter':list([10,50,100])}
+	sgd_clf = GridSearchCV(SGDClassifier(learning_rate='optimal'), sgd_parameters, n_jobs=-1, verbose=3, cv=2) if verbosity else GridSearchCV(SGDClassifier(learning_rate='optimal'), sgd_parameters, n_jobs=-1, verbose=0, cv=2)
+	sgd_clf.fit(X_train_skimmed,y_train_skimmed)
+	
+	sgd_best_clf = sgd_clf.best_estimator_
+	if verbosity:
+		log.info('Parameters of the best classifier: %s' % str(sgd_best_clf.get_params()))
+	sgd_best_clf.verbose = 2
+	sgd_best_clf.fit(X_train,y_train)
+	sgd_disc = sgd_best_clf.predict_proba(X_test)[:,1]
+	sgd_fpr, sgd_tpr, sgd_thresholds = roc_curve(y_test, sgd_disc)
+	
+	Classifiers["SGD"]=(sgd_best_clf,y_test,sgd_disc,sgd_fpr,sgd_tpr,sgd_thresholds)
+	
+	
+	
+	#
+	# Nearest Neighbors
+	#
+	log.info('%s %s %s: Starting to process %s Nearest Neighbors %s' % (Fore.GREEN,name,Fore.WHITE,Fore.BLUE,Fore.WHITE))
+	
+	knn_parameters = {'n_neighbors':list([5,10,50,100]), 'algorithm':list(['ball_tree','kd_tree','brute']),'leaf_size':list([20,30,40]), 'metric':list(['euclidean','minkowski','manhattan','chebyshev'])}
+	knn_clf = GridSearchCV(KNeighborsClassifier(), knn_parameters, n_jobs=-1, verbose=3, cv=2) if verbosity else GridSearchCV(KNeighborsClassifier(), knn_parameters, n_jobs=-1, verbose=0, cv=2)
+	knn_clf.fit(X_train_skimmed,y_train_skimmed)
+	
+	knn_best_clf = knn_clf.best_estimator_
+	if verbosity:
+		log.info('Parameters of the best classifier: %s' % str(knn_best_clf.get_params()))
+	knn_best_clf.verbose = 2
+	knn_best_clf.fit(X_train,y_train)
+	knn_disc = knn_best_clf.predict_proba(X_test)[:,1]
+	knn_fpr, knn_tpr, knn_thresholds = roc_curve(y_test, knn_disc)
+	
+	Classifiers["kNN"]=(knn_best_clf,y_test,knn_disc,knn_fpr,knn_tpr,knn_thresholds)
+	
+	
+	
+	
+	#
+	# Naive Bayes (Likelihood Ratio)
+	#
+	log.info('%s %s %s: Starting to process %s Naive Bayes (Likelihood Ratio) %s' % (Fore.GREEN,name,Fore.WHITE,Fore.BLUE,Fore.WHITE))
+	
+	nb_best_clf = GaussianNB() # There is no tuning of a likelihood ratio!
+	if verbosity:
+		log.info('Parameters of the best classifier: A simple likelihood ratio has no parameters to be tuned!')
+	nb_best_clf.verbose = 2
+	nb_best_clf.fit(X_train,y_train)
+	nb_disc = nb_best_clf.predict_proba(X_test)[:,1]
+	nb_fpr, nb_tpr, nb_thresholds = roc_curve(y_test, nb_disc)
+	
+	Classifiers["NB"]=(nb_best_clf,y_test,nb_disc,nb_fpr,nb_tpr,nb_thresholds)
+	
+	
+	
+	#
+	# Multi-Layer Perceptron (Neural Network)
+	#
+	log.info('%s %s %s: Starting to process %s Multi-Layer Perceptron (Neural Network) %s' % (Fore.GREEN,name,Fore.WHITE,Fore.BLUE,Fore.WHITE))
+	
+	mlp_parameters = {'activation':list(['tanh','relu']), 'hidden_layer_sizes':list([10,(5,10),(10,15)]), 'algorithm':list(['adam']), 'alpha':list([0.0001,0.00005]), 'tol':list([0.00001,0.00005,0.0001]), 'learning_rate_init':list([0.001,0.005,0.0005])}
+	mlp_clf = GridSearchCV(MLPClassifier(max_iter = 500), mlp_parameters, n_jobs=-1, verbose=3, cv=2) if verbosity else GridSearchCV(MLPClassifier(max_iter = 500), mlp_parameters, n_jobs=-1, verbose=0, cv=2) #learning_rate = 'adaptive'
+	mlp_clf.fit(X_train_skimmed,y_train_skimmed)
+	
+	mlp_best_clf = mlp_clf.best_estimator_
+	if verbosity:
+		log.info('Parameters of the best classifier: %s' % str(mlp_best_clf.get_params()))
+	mlp_best_clf.verbose = 2
+	mlp_best_clf.fit(X_train,y_train)
+	mlp_disc = mlp_best_clf.predict_proba(X_test)[:,1]
+	mlp_fpr, mlp_tpr, mlp_thresholds = roc_curve(y_test, mlp_disc)
+	
+	Classifiers["MLP"]=(mlp_best_clf,y_test,mlp_disc,mlp_fpr,mlp_tpr,mlp_thresholds)
+	
+	
+	
+	
 
+	
+	#
+	# Support Vector Machine
+	#
+	log.info('%s %s %s: Starting to process %s Support Vector Machine %s' % (Fore.GREEN,name,Fore.WHITE,Fore.BLUE,Fore.WHITE))
+	
+	svm_parameters = {'kernel':list(['rbf']), 'gamma':list(['auto',0.05]), 'C':list([0.9,1.0])}
+	svm_clf = GridSearchCV(SVC(probability=True), svm_parameters, n_jobs=-1, verbose=3, cv=2) if verbosity else GridSearchCV(SVC(probability=True), svm_parameters, n_jobs=-1, verbose=0, cv=2)
+	svm_clf.fit(X_train_skimmed,y_train_skimmed)
+	
+	svm_best_clf = svm_clf.best_estimator_
+	if verbosity:
+		log.info('Parameters of the best classifier: %s' % str(svm_best_clf.get_params()))
+	svm_best_clf.verbose = 2
+	#svm_best_clf.fit(X_train,y_train)
+	svm_disc = svm_best_clf.predict_proba(X_test)[:,1]
+	svm_fpr, svm_tpr, svm_thresholds = roc_curve(y_test, svm_disc)
+	
+	Classifiers["SVM"]=(svm_best_clf,y_test,svm_disc,svm_fpr,svm_tpr,svm_thresholds)
+	
+	
+	if DumpDiscriminators:
+		XX = rootnp.root2array(DumpFile,'tree',features_array,None,0,None,None,False,'weight')
+		XX = rootnp.rec2array(XX)
+		
+		ordered_MVAs = ['GBC','RF','SVM','SGD','kNN','NB','MLP']
+		dict_Discriminators = {}
+		for c in ordered_MVAs:
+			classifier = Classifiers[c][0]
+			dict_Discriminators[name+'_'+c] = classifier.predict_proba(XX)[:,1]
+		
+		inputfile = ROOT.TFile(DumpFile)
+		inputtree = inputfile.Get('tree')
+		inputtree.SetBranchStatus("*",1)
+		branch_list = inputtree.GetListOfBranches()
+		branch_name_list = [d.GetName() for d in branch_list]
+		for mva in ordered_MVAs:
+			branch_name = name+"_"+mva
+			if branch_name in branch_name_list:
+				inputtree.SetBranchStatus(branch_name,0)
+			
+		newfile = ROOT.TFile(DumpFile.split('.root')[0]+'_tmp.root','RECREATE')
+		newtree = inputtree.CloneTree(0)
+		
+		dict_Leaves = {}
+		for mva in ordered_MVAs:
+			branch_name = name+"_"+mva
+			dict_Leaves[branch_name] = array('d',[0])
+			newtree.Branch(branch_name, dict_Leaves[branch_name], branch_name + "/D")
+		
+		
+		log.info('%s: Starting to process the output tree' %name)
+		nEntries = inputtree.GetEntries()
+		for i in range(nEntries):
+			if i%1000 == 0: log.info('Processing event %s/%s (%s%.2f%s%%)' %(i,nEntries,Fore.GREEN,100*float(i)/float(nEntries),Fore.WHITE))
+			inputtree.GetEntry(i)
+			for key,value in dict_Discriminators.iteritems():
+				dict_Leaves[key][0] = value[i]
+			newtree.Fill()
+
+		newtree.Write()
+		newfile.Close()
+		inputfile.Close()
+		
+		os.system('cp %s %s'%(DumpFile.split('.root')[0]+'_tmp.root',DumpFile))
+		os.system('rm %s'%DumpFile.split('.root')[0]+'_tmp.root')
+
+		log.info('Done: output file dumped in %s' %DumpFile)
+	
+	
+	return Classifiers
 
 
 
