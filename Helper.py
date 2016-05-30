@@ -104,7 +104,7 @@ def BestClassifier(Classifiers,FoM,typ_name='',features_array=[],signal_selectio
 		branch_list = inputtree.GetListOfBranches()
 		branch_name_list = [d.GetName() for d in branch_list]
 		branch_name = typ_name+'_BEST_'
-		if any(branch_name in s for s in branch_name_list):
+		if any([branch_name in s for s in branch_name_list]):
 			inputtree.SetBranchStatus(branch_name+"*",0)
 			
 		newfile = ROOT.TFile(DumpFile.split('.root')[0]+'_tmp.root','RECREATE')
@@ -116,7 +116,7 @@ def BestClassifier(Classifiers,FoM,typ_name='',features_array=[],signal_selectio
 		newtree.Branch(branch_name, dict_Leaves[branch_name], branch_name + "/D")
 		
 		
-		log.info('%s: Starting to process the output tree' %name)
+		log.info('%s: Starting to process the output tree' %typ_name)
 		nEntries = inputtree.GetEntries()
 		for i in range(nEntries):
 			if i%1000 == 0: log.info('Processing event %s/%s (%s%.2f%s%%)' %(i,nEntries,Fore.GREEN,100*float(i)/float(nEntries),Fore.WHITE))
