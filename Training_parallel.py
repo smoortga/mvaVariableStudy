@@ -1,283 +1,123 @@
-import rootpy
-import rootpy.io as io
-import ROOT
-from ROOT import *
-import numpy as np
-np.set_printoptions(precision=5)
-import root_numpy as rootnp
-import matplotlib.pyplot as plt
-from argparse import ArgumentParser
-from features import *
-from featureClass import *
-import os
-log = rootpy.log["/Training"]
-log.setLevel(rootpy.log.INFO)
-import pickle
-import math
-import time
-from colorama import Fore
-import multiprocessing
-import thread
-import subprocess
-
-from sklearn.metrics import roc_curve
-from sklearn.model_selection import GridSearchCV
-from sklearn.cross_validation import train_test_split
-
-from sklearn.ensemble import GradientBoostingClassifier
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.svm import SVC
-from sklearn.linear_model import SGDClassifier
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.naive_bayes import GaussianNB
-from sklearn.neural_network import MLPClassifier
+from Helper import *
 
 
 parser = ArgumentParser()
 
-parser.add_argument('--indir', default = os.getcwd()+'/Types/')
-parser.add_argument('--dumpROC', action='store_true')
+parser.add_argument('--Typesdir', default = os.getcwd()+'/Types/')
 parser.add_argument('--verbose', action='store_true')
 parser.add_argument('--signal', default='C', help='signal for training')
 parser.add_argument('--bkg', default='DUSG', help='background for training')
-parser.add_argument('--pickEvery', type=int, default=10, help='pick one element every ...')
+parser.add_argument('--FoM', type=str, default = 'AUC', help='Which Figure or Merit (FoM) to use: AUC,PUR,ACC,OOP')
+parser.add_argument('--pickEvery', type=int, default=5, help='pick one element every ...')
+parser.add_argument('--InputFile', default = os.getcwd()+'/DiscriminatorOutputs/discriminator_ntuple.root')
+parser.add_argument('--InputTree', default = 'tree')
+parser.add_argument('--OutputExt', default = '.png')
 
 args = parser.parse_args()
 
-flav_dict = {"C":[4],"B":[5],"DUSG":[1,2,3,21]}
+ROOT.gROOT.SetBatch(True)
+
+signal_selection = ""
+bkg_selection = ""
+if args.signal == "B": signal_selection = "flavour == 5"
+elif args.signal == "C": signal_selection = "flavour == 4"
+elif args.signal == "DUSG": signal_selection = "flavour != 5 && flavour != 4"
+else: 
+	log.info('NO VALID SIGNAL, using B')
+	signal_selection = "flavour == 5"
+if args.bkg == "B": bkg_selection = "flavour == 5"
+elif args.bkg == "C": bkg_selection = "flavour == 4"
+elif args.bkg == "DUSG": bkg_selection = "flavour != 5 && flavour != 4"
+else: 
+	log.info('NO VALID bkg, using DUSG')
+	bkg_selection = "flavour != 5 && flavour != 4"
 
 
-bkg_number = []
-if args.bkg == "C": bkg_number=[4]
-elif args.bkg == "B": bkg_number=[5]
-else: bkg_number = [1,2,3,21]
-
-
-ntypes = len(os.listdir(args.indir))
+ntypes = len([d for d in os.listdir(args.Typesdir) if not d.endswith('.pkl')])
 
 def proc_type(idx,ftype):
-	typedir = args.indir+ftype+"/"
+	typedir = args.Typesdir+ftype+"/"
 	log.info('************ Processing Type (%s/%s): %s %s %s ****************' % (str(idx+1),str(ntypes),Fore.GREEN,ftype,Fore.WHITE))
 	if args.verbose: log.info('Working in directory: %s' % typedir)
 	
-	Classifiers = {}
-	OutFile = open(typedir+'OptimizedClassifiers.txt', 'w')
+	ty = ftype.replace("+","plus")
+	typ = ty.replace("-","minus")
+	
 
 	featurenames = pickle.load(open(typedir + "featurenames.pkl","r"))
-	X_full = pickle.load(open(typedir + "tree.pkl","r"))
-	X_signal = np.asarray([x for x in X_full if x[-1] in flav_dict[args.signal]])[:,0:-1]
-	X_bkg = np.asarray([x for x in X_full if x[-1] in flav_dict[args.bkg]])[:,0:-1]
+	featurenames = [f for f in featurenames if f != 'flavour']
+	X_sig = rootnp.root2array(args.InputFile,args.InputTree,featurenames,signal_selection,0,None,args.pickEvery,False,'weight')
+	X_sig = rootnp.rec2array(X_sig)
+	X_bkg = rootnp.root2array(args.InputFile,args.InputTree,featurenames,bkg_selection,0,None,args.pickEvery,False,'weight')
+	X_bkg = rootnp.rec2array(X_bkg)
+	X = np.concatenate((X_sig,X_bkg))
+	y = np.concatenate((np.ones(len(X_sig)),np.zeros(len(X_bkg))))
 	
-	# select only every 'pickEvery' and onle the first 'element_per_sample'
-	X_signal = np.asarray([X_signal[i] for i in range(len(X_signal)) if i%args.pickEvery == 0])
-	X_bkg = np.asarray([X_bkg[i] for i in range(len(X_bkg)) if i%args.pickEvery == 0])
-	
-	X = np.concatenate((X_signal,X_bkg))
-	y = np.concatenate((np.ones(len(X_signal)),np.zeros(len(X_bkg))))
-	
-	X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
-	X_train_skimmed = np.asarray([X_train[i] for i in range(len(X_train)) if i%10 == 0]) # optimization only on 10 %
-	y_train_skimmed = np.asarray([y_train[i] for i in range(len(y_train)) if i%10 == 0])
+	Classifiers = Optimize(typ,X,y,featurenames,signal_selection,bkg_selection,True,'./DiscriminatorOutputs/discriminator_ntuple.root',Optmization_fraction = 0.1,train_test_splitting=0.5)
 
+	best_clf_name,best_clf = BestClassifier(Classifiers,args.FoM,typ,featurenames,signal_selection,bkg_selection,True,'./DiscriminatorOutputs/discriminator_ntuple.root')
 
-
-	#
-	# GBC
-	#
-	log.info('%s %s %s: Starting to process %s Gradient Boosting Classifier %s' % (Fore.GREEN,ftype,Fore.WHITE,Fore.BLUE,Fore.WHITE))
-	
-	gbc_parameters = {'n_estimators':list([50,100,200]), 'max_depth':list([5,10,15]),'min_samples_split':list([int(0.005*len(X_train_skimmed)), int(0.01*len(X_train_skimmed))]), 'learning_rate':list([0.05,0.1])}
-	gbc_clf = GridSearchCV(GradientBoostingClassifier(), gbc_parameters, n_jobs=-1, verbose=3, cv=2) if args.verbose else GridSearchCV(GradientBoostingClassifier(), gbc_parameters, n_jobs=-1, verbose=0, cv=2)
-	gbc_clf.fit(X_train_skimmed,y_train_skimmed)
-	
-	gbc_best_clf = gbc_clf.best_estimator_
-	if args.verbose:
-		log.info('Parameters of the best classifier: %s' % str(gbc_best_clf.get_params()))
-	gbc_best_clf.verbose = 2
-	gbc_best_clf.fit(X_train,y_train)
-	gbc_disc = gbc_best_clf.predict_proba(X_test)[:,1]
-	gbc_fpr, gbc_tpr, gbc_thresholds = roc_curve(y_test, gbc_disc)
-	
-	Classifiers["GBC"]=(gbc_best_clf,y_test,gbc_disc,gbc_fpr,gbc_tpr,gbc_thresholds)
-	OutFile.write("GBC: " + str(gbc_best_clf.get_params()) + "\n")
-	
-	
-	
-	#
-	# Randomized Forest
-	#
-	log.info('%s %s %s: Starting to process %s Randomized Forest Classifier %s' % (Fore.GREEN,ftype,Fore.WHITE,Fore.BLUE,Fore.WHITE))
-	
-	rf_parameters = {'n_estimators':list([50,100,200]), 'max_depth':list([5,10,15]),'min_samples_split':list([int(0.005*len(X_train_skimmed)), int(0.01*len(X_train_skimmed))]), 'max_features':list(["sqrt","log2",0.5])}
-	rf_clf = GridSearchCV(RandomForestClassifier(n_jobs=5), rf_parameters, n_jobs=-1, verbose=3, cv=2) if args.verbose else GridSearchCV(RandomForestClassifier(n_jobs=5), rf_parameters, n_jobs=-1, verbose=0, cv=2)
-	rf_clf.fit(X_train_skimmed,y_train_skimmed)
-	
-	rf_best_clf = rf_clf.best_estimator_
-	if args.verbose:
-		log.info('Parameters of the best classifier: %s' % str(rf_best_clf.get_params()))
-	rf_best_clf.verbose = 2
-	rf_best_clf.fit(X_train,y_train)
-	rf_disc = rf_best_clf.predict_proba(X_test)[:,1]
-	rf_fpr, rf_tpr, rf_thresholds = roc_curve(y_test, rf_disc)
-	
-	Classifiers["RF"]=(rf_best_clf,y_test,rf_disc,rf_fpr,rf_tpr,rf_thresholds)
-	OutFile.write("RF: " + str(rf_best_clf.get_params()) + "\n")
-	
-	
-	
-	#
-	# Stochastic Gradient Descent
-	#
-	log.info('%s %s %s: Starting to process %s Stochastic Gradient Descent %s' % (Fore.GREEN,ftype,Fore.WHITE,Fore.BLUE,Fore.WHITE))
-	
-	sgd_parameters = {'loss':list(['log','modified_huber']), 'penalty':list(['l2','l1','elasticnet']),'alpha':list([0.0001,0.00005,0.001]), 'n_iter':list([10,50,100])}
-	sgd_clf = GridSearchCV(SGDClassifier(learning_rate='optimal'), sgd_parameters, n_jobs=-1, verbose=3, cv=2) if args.verbose else GridSearchCV(SGDClassifier(learning_rate='optimal'), sgd_parameters, n_jobs=-1, verbose=0, cv=2)
-	sgd_clf.fit(X_train_skimmed,y_train_skimmed)
-	
-	sgd_best_clf = sgd_clf.best_estimator_
-	if args.verbose:
-		log.info('Parameters of the best classifier: %s' % str(sgd_best_clf.get_params()))
-	sgd_best_clf.verbose = 2
-	sgd_best_clf.fit(X_train,y_train)
-	sgd_disc = sgd_best_clf.predict_proba(X_test)[:,1]
-	sgd_fpr, sgd_tpr, sgd_thresholds = roc_curve(y_test, sgd_disc)
-	
-	Classifiers["SGD"]=(sgd_best_clf,y_test,sgd_disc,sgd_fpr,sgd_tpr,sgd_thresholds)
-	OutFile.write("SGD: " + str(sgd_best_clf.get_params()) + "\n")
-	
-	
-	
-	#
-	# Nearest Neighbors
-	#
-	log.info('%s %s %s: Starting to process %s Nearest Neighbors %s' % (Fore.GREEN,ftype,Fore.WHITE,Fore.BLUE,Fore.WHITE))
-	
-	knn_parameters = {'n_neighbors':list([5,10,50,100]), 'algorithm':list(['ball_tree','kd_tree','brute']),'leaf_size':list([20,30,40]), 'metric':list(['euclidean','minkowski','manhattan','chebyshev'])}
-	knn_clf = GridSearchCV(KNeighborsClassifier(), knn_parameters, n_jobs=-1, verbose=3, cv=2) if args.verbose else GridSearchCV(KNeighborsClassifier(), knn_parameters, n_jobs=-1, verbose=0, cv=2)
-	knn_clf.fit(X_train_skimmed,y_train_skimmed)
-	
-	knn_best_clf = knn_clf.best_estimator_
-	if args.verbose:
-		log.info('Parameters of the best classifier: %s' % str(knn_best_clf.get_params()))
-	knn_best_clf.verbose = 2
-	knn_best_clf.fit(X_train,y_train)
-	knn_disc = knn_best_clf.predict_proba(X_test)[:,1]
-	knn_fpr, knn_tpr, knn_thresholds = roc_curve(y_test, knn_disc)
-	
-	Classifiers["kNN"]=(knn_best_clf,y_test,knn_disc,knn_fpr,knn_tpr,knn_thresholds)
-	OutFile.write("kNN: " + str(knn_best_clf.get_params()) + "\n")
-	
-	
-	
-	
-	#
-	# Naive Bayes (Likelihood Ratio)
-	#
-	log.info('%s %s %s: Starting to process %s Naive Bayes (Likelihood Ratio) %s' % (Fore.GREEN,ftype,Fore.WHITE,Fore.BLUE,Fore.WHITE))
-	
-	nb_best_clf = GaussianNB() # There is no tuning of a likelihood ratio!
-	if args.verbose:
-		log.info('Parameters of the best classifier: A simple likelihood ratio has no parameters to be tuned!')
-	nb_best_clf.verbose = 2
-	nb_best_clf.fit(X_train,y_train)
-	nb_disc = nb_best_clf.predict_proba(X_test)[:,1]
-	nb_fpr, nb_tpr, nb_thresholds = roc_curve(y_test, nb_disc)
-	
-	Classifiers["NB"]=(nb_best_clf,y_test,nb_disc,nb_fpr,nb_tpr,nb_thresholds)
-	OutFile.write("NB: " + str(nb_best_clf.get_params()) + "\n")
-	
-	
-	
-	#
-	# Multi-Layer Perceptron (Neural Network)
-	#
-	log.info('%s %s %s: Starting to process %s Multi-Layer Perceptron (Neural Network) %s' % (Fore.GREEN,ftype,Fore.WHITE,Fore.BLUE,Fore.WHITE))
-	
-	mlp_parameters = {'activation':list(['tanh','relu']), 'hidden_layer_sizes':list([10,(5,10),(10,15)]), 'algorithm':list(['adam']), 'alpha':list([0.0001,0.00005]), 'tol':list([0.00001,0.00005,0.0001]), 'learning_rate_init':list([0.001,0.005,0.0005])}
-	mlp_clf = GridSearchCV(MLPClassifier(max_iter = 500), mlp_parameters, n_jobs=-1, verbose=3, cv=2) if args.verbose else GridSearchCV(MLPClassifier(max_iter = 500), mlp_parameters, n_jobs=-1, verbose=0, cv=2) #learning_rate = 'adaptive'
-	mlp_clf.fit(X_train_skimmed,y_train_skimmed)
-	
-	mlp_best_clf = mlp_clf.best_estimator_
-	if args.verbose:
-		log.info('Parameters of the best classifier: %s' % str(mlp_best_clf.get_params()))
-	mlp_best_clf.verbose = 2
-	mlp_best_clf.fit(X_train,y_train)
-	mlp_disc = mlp_best_clf.predict_proba(X_test)[:,1]
-	mlp_fpr, mlp_tpr, mlp_thresholds = roc_curve(y_test, mlp_disc)
-	
-	Classifiers["MLP"]=(mlp_best_clf,y_test,mlp_disc,mlp_fpr,mlp_tpr,mlp_thresholds)
-	OutFile.write("MLP: " + str(mlp_best_clf.get_params()) + "\n")
-	
-	
-	
-	
-
-	
-	#
-	# Support Vector Machine
-	#
-	log.info('%s %s %s: Starting to process %s Support Vector Machine %s' % (Fore.GREEN,ftype,Fore.WHITE,Fore.BLUE,Fore.WHITE))
-	
-	svm_parameters = {'kernel':list(['rbf']), 'gamma':list(['auto',0.05]), 'C':list([0.9,1.0])}
-	svm_clf = GridSearchCV(SVC(probability=True), svm_parameters, n_jobs=-1, verbose=3, cv=2) if args.verbose else GridSearchCV(SVC(probability=True), svm_parameters, n_jobs=-1, verbose=0, cv=2)
-	svm_clf.fit(X_train_skimmed,y_train_skimmed)
-	
-	svm_best_clf = svm_clf.best_estimator_
-	if args.verbose:
-		log.info('Parameters of the best classifier: %s' % str(svm_best_clf.get_params()))
-	svm_best_clf.verbose = 2
-	#svm_best_clf.fit(X_train,y_train)
-	svm_disc = svm_best_clf.predict_proba(X_test)[:,1]
-	svm_fpr, svm_tpr, svm_thresholds = roc_curve(y_test, svm_disc)
-	
-	Classifiers["SVM"]=(svm_best_clf,y_test,svm_disc,svm_fpr,svm_tpr,svm_thresholds)
-	OutFile.write("SVM: " + str(svm_best_clf.get_params()) + "\n")
-	
-	
-	
-		
-		
-	
-	
-	if args.dumpROC:
-		plt.semilogy(gbc_tpr, gbc_fpr,label='GBC')
-		plt.semilogy(rf_tpr, rf_fpr,label='RF')
-		plt.semilogy(svm_tpr, svm_fpr,label='SVM')
-		plt.semilogy(sgd_tpr, sgd_fpr,label='SGD')
-		plt.semilogy(knn_tpr, knn_fpr,label='kNN')
-		plt.semilogy(nb_tpr, nb_fpr,label='NB')
-		plt.semilogy(mlp_tpr, mlp_fpr,label='MLP')
-		#plt.semilogy([0,0.1,0.2,0.3,0.4,0.5,0.6,0.8,1], [0.00001,0.002,0.01,0.04,0.1,0.2,0.3,0.6,1],label='Current c-tagger')
-		plt.ylabel(args.bkg + " Efficiency")
-		plt.xlabel(args.signal + " Efficiency")
-		plt.legend(loc='best')
-		plt.grid(True)
-		plt.savefig("%sROCcurves.png" % typedir)
-		plt.clf()
-	
-	
-	
-	
 	log.info('Done Processing Type: %s, dumping output in %sTrainingOutputs.pkl' % (ftype,typedir))
-	print ""
 	pickle.dump(Classifiers,open( typedir + "TrainingOutputs.pkl", "wb" ))
-	OutFile.close()
-
-
-
+	
+	# Drawing Discr histos and ROCs
+	if not os.path.isdir('/'.join(args.InputFile.split('/')[0:-1])+"/Types/"+typ+"/"):os.makedirs('/'.join(args.InputFile.split('/')[0:-1])+"/Types/"+typ+"/")
+	disc_array = []
+	for clf_name,clf in Classifiers.iteritems():
+		DrawDiscrAndROCFromROOT(args.InputFile,args.InputTree,'/'.join(args.InputFile.split('/')[0:-1])+"/Types/"+typ+"/DiscriminantOverlayAndROC_"+typ+"_"+clf_name+args.OutputExt,typ+"_"+clf_name,typ+"_"+clf_name,signal_selection,bkg_selection)
+		disc_array.append(typ+"_"+clf_name)
+	
+	combos =  list(itertools.combinations(disc_array,2))
+	for couple in combos:
+		Draw2dCorrHistFromROOT(args.InputFile,args.InputTree,'/'.join(args.InputFile.split('/')[0:-1])+"/Types/"+typ+"/Correlation2DHist_S_"+couple[0].split("_")[1]+"_"+couple[1].split("_")[1]+args.OutputExt,couple[0],couple[1],couple[0],couple[1],signal_selection)
+		Draw2dCorrHistFromROOT(args.InputFile,args.InputTree,'/'.join(args.InputFile.split('/')[0:-1])+"/Types/"+typ+"/Correlation2DHist_B_"+couple[0].split("_")[1]+"_"+couple[1].split("_")[1]+args.OutputExt,couple[0],couple[1],couple[0],couple[1],bkg_selection)
+	
+	# and the correlation matrix between the different MVAs in a Type
+	DrawCorrelationMatrixFromROOT(args.InputFile,args.InputTree,'/'.join(args.InputFile.split('/')[0:-1])+"/Types/"+typ+"/Discr_CorrMat_"+typ+"_S"+args.OutputExt,disc_array,signal_selection,args.pickEvery)
+	DrawCorrelationMatrixFromROOT(args.InputFile,args.InputTree,'/'.join(args.InputFile.split('/')[0:-1])+"/Types/"+typ+"/Discr_CorrMat_"+typ+"_B"+args.OutputExt,disc_array,bkg_selection,args.pickEvery)
+	
+	# and the best one in the main directory
+	DrawDiscrAndROCFromROOT(args.InputFile,args.InputTree,'/'.join(args.InputFile.split('/')[0:-1])+"/Types/DiscriminantOverlayAndROC_"+typ+"_BEST_"+best_clf_name+args.OutputExt,typ+"_BEST_"+best_clf_name,typ+"_BEST_"+best_clf_name,signal_selection,bkg_selection)
+	
+	#and the ROC overlays for different MVA methods
+	compare_array = []
+	for clf_name,clf in Classifiers.iteritems():
+		compare_array.append(typ+"_"+clf_name)
+	DrawROCOverlaysFromROOT(args.InputFile,args.InputTree,'/'.join(args.InputFile.split('/')[0:-1])+"/Types/"+typ+"/ROCOverlays_"+typ+args.OutputExt,compare_array,signal_selection,bkg_selection)
 
 
 
 def main():
 	
-	parallelProcesses = multiprocessing.cpu_count()
-	p = multiprocessing.Pool(parallelProcesses)
-	print "Using %i parallel processes" %parallelProcesses
+	for idx, ftype in enumerate([d for d in os.listdir(args.Typesdir) if not d.endswith('.pkl')]):
+		proc_type(idx,ftype)
 	
-	for idx, ftype in enumerate(os.listdir(args.indir)):
-		p.apply_async(proc_type, args = (idx,ftype,))
-	p.close()
-	p.join()
+	# plot the correlation matrices between all the BEST classifiers for each type
+	#************************************************
+	tmp = ROOT.TFile(args.InputFile)
+	tmptree=tmp.Get(args.InputTree)
+	total_branch_list = tmptree.GetListOfBranches()
+	best_names = []
+	for b in total_branch_list:
+		name = b.GetName()
+		if name.find("BEST") != -1 and name.find("SuperMVA") == -1 and name.find("SuperCombinedMVA") == -1 and name.find("COMB") == -1:
+			best_names.append(name)
+	
+	combos =  list(itertools.combinations(best_names,2))
+	for couple in combos:
+		Draw2dCorrHistFromROOT(args.InputFile,args.InputTree,'/'.join(args.InputFile.split('/')[0:-1])+"/Types/Correlation2DHist_BEST_S_"+couple[0].split("_")[0]+"_"+couple[1].split("_")[0]+args.OutputExt,couple[0],couple[1],couple[0],couple[1],signal_selection)
+		Draw2dCorrHistFromROOT(args.InputFile,args.InputTree,'/'.join(args.InputFile.split('/')[0:-1])+"/Types/Correlation2DHist_BEST_B_"+couple[0].split("_")[0]+"_"+couple[1].split("_")[0]+args.OutputExt,couple[0],couple[1],couple[0],couple[1],bkg_selection)	
+	
+	DrawCorrelationMatrixFromROOT(args.InputFile,args.InputTree,'/'.join(args.InputFile.split('/')[0:-1])+"/Types/Discr_CorrMat_BEST_S"+args.OutputExt,best_names,signal_selection,args.pickEvery)
+	DrawCorrelationMatrixFromROOT(args.InputFile,args.InputTree,'/'.join(args.InputFile.split('/')[0:-1])+"/Types/Discr_CorrMat_BEST_B"+args.OutputExt,best_names,bkg_selection,args.pickEvery)
+	#************************************************
+	# plot overlay of all types ROC curves (BEST)
+	DrawROCOverlaysFromROOT(args.InputFile,args.InputTree,'/'.join(args.InputFile.split('/')[0:-1])+"/Types/ROCOverlays_BEST"+args.OutputExt,best_names,signal_selection,bkg_selection)
+	#************************************************
+	
+	if not os.path.isdir(os.getcwd().split("/CTag/")[0]+"/public_html/"+os.getcwd().split("/CTag/")[1]+"/"): os.makedirs(os.getcwd().split("/CTag/")[0]+"/public_html/"+os.getcwd().split("/CTag/")[1]+"/")
+	os.system("rsync -aP %s %s" %('/'.join(args.InputFile.split('/')[0:-1])+'/',os.getcwd().split("/CTag/")[0]+"/public_html/"+os.getcwd().split("/CTag/")[1]+"/"))
+	os.system("python ~/web.py -c 2 -s 450")
 	
 	
 if __name__ == "__main__":

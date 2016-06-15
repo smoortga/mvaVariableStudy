@@ -17,6 +17,9 @@ import math
 import pandas as pd
 from operator import itemgetter
 from array import array
+import multiprocessing
+import thread
+import subprocess
 
 from sklearn.metrics import roc_curve
 from sklearn.model_selection import GridSearchCV
@@ -119,7 +122,7 @@ def BestClassifier(Classifiers,FoM,typ_name='',features_array=[],signal_selectio
 		log.info('%s: Starting to process the output tree' %typ_name)
 		nEntries = inputtree.GetEntries()
 		for i in range(nEntries):
-			if i%1000 == 0: log.info('Processing event %s/%s (%s%.2f%s%%)' %(i,nEntries,Fore.GREEN,100*float(i)/float(nEntries),Fore.WHITE))
+			if i%10000 == 0: log.info('Processing event %s/%s (%s%.2f%s%%)' %(i,nEntries,Fore.GREEN,100*float(i)/float(nEntries),Fore.WHITE))
 			inputtree.GetEntry(i)
 			for key,value in dict_Discriminators.iteritems():
 				dict_Leaves[key][0] = value[i]
@@ -327,7 +330,7 @@ def Optimize(name,X,y,features_array,signal_selection,bkg_selection,DumpDiscrimi
 		log.info('%s: Starting to process the output tree' %name)
 		nEntries = inputtree.GetEntries()
 		for i in range(nEntries):
-			if i%1000 == 0: log.info('Processing event %s/%s (%s%.2f%s%%)' %(i,nEntries,Fore.GREEN,100*float(i)/float(nEntries),Fore.WHITE))
+			if i%10000 == 0: log.info('Processing event %s/%s (%s%.2f%s%%)' %(i,nEntries,Fore.GREEN,100*float(i)/float(nEntries),Fore.WHITE))
 			inputtree.GetEntry(i)
 			for key,value in dict_Discriminators.iteritems():
 				dict_Leaves[key][0] = value[i]
@@ -650,9 +653,39 @@ def DrawROCOverlaysFromROOT(infile,intree,outfile,brancharray,signalselection,ba
 	c.SaveAs(outfile)
 		
 		
+def RemoveBranchesFromTree(infile,intree,DumpFile,branch_remove_string=""):
+	"""
+	remove all branches that contain the sting branch_remove_string
+	"""
+	inputfile = ROOT.TFile(DumpFile)
+	inputtree = inputfile.Get('tree')
+	inputtree.SetBranchStatus("*",1)	
+	branch_list = inputtree.GetListOfBranches()
+	branch_name_list_toremove = [d.GetName() for d in branch_list if d.GetName().find(branch_remove_string) != -1]
+	for br in branch_name_list_toremove:
+		inputtree.SetBranchStatus(br,0)
 		
+	newfile = ROOT.TFile(DumpFile.split('.root')[0]+'_tmp.root','RECREATE')
+	newtree = inputtree.CloneTree(0)
+	
+	log.info('Starting to remove branches containing %s%s%s' %(Fore.RED,branch_remove_string,Fore.WHITE))
+	nEntries = inputtree.GetEntries()
+	for i in range(nEntries):
+		if i%10000 == 0: log.info('Processing event %s/%s (%s%.2f%s%%)' %(i,nEntries,Fore.GREEN,100*float(i)/float(nEntries),Fore.WHITE))
+		inputtree.GetEntry(i)
+		newtree.Fill()
+
+	newtree.Write()
+	newfile.Close()
+	inputfile.Close()
 		
+	os.system('cp %s %s'%(DumpFile.split('.root')[0]+'_tmp.root',DumpFile))
+	os.system('rm %s'%DumpFile.split('.root')[0]+'_tmp.root')
+
+	log.info('Done: output file dumped in %s' %DumpFile)	
 		
+
+#RemoveBranchesFromTree("./DiscriminatorOutputs/discriminator_ntuple.root","tree","./DiscriminatorOutputs/discriminator_ntuple.root","defSminus05")		
 #ROOT.gROOT.SetBatch(True)
 #Draw2dCorrHistFromROOT("./DiscriminatorOutputs/discriminator_ntuple.root","tree","./test.png","SuperMVA_BEST_RF","SuperMVA_withAll_BEST_GBC","SuperMVA_BEST_RF","SuperMVA_withAll_BEST_GBC", "flavour == 4",1,50,0,1,0,1)	
 #DrawCorrelationMatrixFromROOT("./DiscriminatorOutputs/discriminator_ntuple.root","tree","./test2.png",["SuperMVA_BEST_RF","SuperMVA_withAll_BEST_GBC"],"flavour == 4",50)	
