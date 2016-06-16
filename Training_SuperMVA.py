@@ -127,7 +127,7 @@ else:
 
 #*************************************************************************************************************
 #
-# STEP 4) DRAW PLOTS AND COMPARE TO THE 1-STEP MVA (ROC PLOT)
+# STEP 3) DRAW PLOTS AND COMPARE TO THE 1-STEP MVA (ROC PLOT)
 #
 #*************************************************************************************************************
 ext_for_allTypeInclude = '/withoutAll/'
