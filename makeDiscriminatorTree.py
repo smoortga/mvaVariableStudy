@@ -36,7 +36,7 @@ parser.add_argument('--InputFile', default = os.getcwd()+'/TTjets.root')
 parser.add_argument('--InputTree', default = 'tree')
 parser.add_argument('--OutputDir', default = os.getcwd()+'/DiscriminatorOutputs/')
 parser.add_argument('--OutputFile', default = 'discriminator_ntuple.root')
-parser.add_argument('--pickEvery', type=int, default=None, help='pick one element every ...')
+parser.add_argument('--pickEvery', type=int, default=1, help='pick one element every ...')
 parser.add_argument('--elements_per_sample', type=int, default=None, help='consider only the first ... elements in the sample')
 
 args = parser.parse_args()
