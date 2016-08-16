@@ -35,7 +35,7 @@ else:
 
 ntypes = len([d for d in os.listdir(args.Typesdir) if not d.endswith('.pkl')])
 
-def proc_type(idx,ftype):
+def proc_type(idx,ftype):	
 	typedir = args.Typesdir+ftype+"/"
 	log.info('************ Processing Type (%s/%s): %s %s %s ****************' % (str(idx+1),str(ntypes),Fore.GREEN,ftype,Fore.WHITE))
 	if args.verbose: log.info('Working in directory: %s' % typedir)
@@ -53,7 +53,13 @@ def proc_type(idx,ftype):
 	X = np.concatenate((X_sig,X_bkg))
 	y = np.concatenate((np.ones(len(X_sig)),np.zeros(len(X_bkg))))
 	
-	Classifiers = Optimize(typ,X,y,featurenames,signal_selection,bkg_selection,True,'./DiscriminatorOutputs/discriminator_ntuple.root',Optmization_fraction = 0.1,train_test_splitting=0.5)
+	training_event_sig = rootnp.root2array(args.InputFile,args.InputTree,"Training_Event",signal_selection,0,None,args.pickEvery,False,'weight')
+	#training_event_sig = rootnp.rec2array(training_event_sig)
+	training_event_bkg = rootnp.root2array(args.InputFile,args.InputTree,"Training_Event",bkg_selection,0,None,args.pickEvery,False,'weight')
+	#training_event_bkg = rootnp.rec2array(training_event_bkg)
+	training_event = np.concatenate((training_event_sig,training_event_bkg))
+	
+	Classifiers = Optimize(typ,X[training_event==1],y[training_event==1],featurenames,signal_selection,bkg_selection,True,'./DiscriminatorOutputs/discriminator_ntuple.root',Optmization_fraction = 0.1,train_test_splitting=0.5)
 
 	best_clf_name,best_clf = BestClassifier(Classifiers,args.FoM,typ,featurenames,signal_selection,bkg_selection,True,'./DiscriminatorOutputs/discriminator_ntuple.root')
 

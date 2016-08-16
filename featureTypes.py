@@ -185,10 +185,10 @@ final_featureTypes.update(kurtS)
 #kurtSB = {"kurtSBTop":sorted(features, key=lambda ft: abs(1-ft.kurtSB_))[-10:],"kurtSBBottom":sorted(features, key=lambda ft: abs(1-ft.kurtSB_))[0:10]}
 #final_featureTypes.update(kurtSB)
 
-ScoreAnova = {"SATop":sorted(features, key=lambda ft: ft.ScoreAnova_)[-10:], "SABottom":sorted(features, key=lambda ft: ft.ScoreAnova_)[0:10]}
-final_featureTypes.update(ScoreAnova)
+#ScoreAnova = {"SATop":sorted(features, key=lambda ft: ft.ScoreAnova_)[-10:], "SABottom":sorted(features, key=lambda ft: ft.ScoreAnova_)[0:10]}
+#final_featureTypes.update(ScoreAnova)
 
-ScoreChi2 = {"Chi2Top":sorted(features, key=lambda ft: ft.ScoreChi2_)[-10:], "Chi2Bottom":sorted(features, key=lambda ft: ft.ScoreChi2_)[0:10]}
+#ScoreChi2 = {"Chi2Top":sorted(features, key=lambda ft: ft.ScoreChi2_)[-10:], "Chi2Bottom":sorted(features, key=lambda ft: ft.ScoreChi2_)[0:10]}
 #final_featureTypes.update(ScoreChi2)
 
 

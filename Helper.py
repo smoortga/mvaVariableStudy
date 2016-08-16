@@ -615,10 +615,14 @@ def DrawROCOverlaysFromROOT(infile,intree,outfile,brancharray,signalselection,ba
 		treeArray_bkg = rootnp.root2array(infile,intree,br,backgroundselection,0,None,None,False,'weight')
 		X_bkg = [i for i in treeArray_bkg]
 		
+		training_event_sig = rootnp.root2array(infile,intree,"Training_Event",signalselection,0,None,None,False,'weight')
+		training_event_bkg = rootnp.root2array(infile,intree,"Training_Event",backgroundselection,0,None,None,False,'weight')
+		training_event = np.concatenate((training_event_sig,training_event_bkg))
+		
 		X = np.concatenate((X_sig,X_bkg))
 		y = np.concatenate((np.ones(len(X_sig)),np.zeros(len(X_bkg))))
-		fpr, tpr, thresholds = roc_curve(y, X)
-		AUC = 1-roc_auc_score(y,X)
+		fpr, tpr, thresholds = roc_curve(y[training_event==0], X[training_event==0])
+		AUC = 1-roc_auc_score(y[training_event==0],X[training_event==0])
 		
 		GraphArray[br] = (ROOT.TGraph(len(fpr),tpr,fpr),AUC)
 	

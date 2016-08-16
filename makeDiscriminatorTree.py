@@ -19,6 +19,7 @@ log.setLevel(rootpy.log.INFO)
 import pickle
 from array import *
 from colorama import Fore
+from random import random
 
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.ensemble import RandomForestClassifier
@@ -57,7 +58,9 @@ if not os.path.isdir(args.OutputDir): os.makedirs(args.OutputDir)
 outfile = TFile(args.OutputDir+args.OutputFile,'RECREATE')
 tree = input_tree.CloneTree(0)
 
-
+branch_name = "Training_Event"
+branch_array = array('d',[0])
+tree.Branch(branch_name, branch_array, branch_name + "/D")
 #******************************************************
 #
 # Filling Output Tree
@@ -72,6 +75,9 @@ for i in range(nEntries):
 	if i%args.pickEvery != 0: continue
 	if counter%10000 == 0: log.info('Processing event %s/%s (%s%.2f%s%%)' %(counter,nEntries_toprocess,Fore.GREEN,100*float(counter)/float(nEntries_toprocess),Fore.WHITE))
 	input_tree.GetEntry(i)
+	rand = random()
+	if rand>0.5:branch_array[0]=0
+	else: branch_array[0]=1
 	tree.Fill()
 	counter += 1
 

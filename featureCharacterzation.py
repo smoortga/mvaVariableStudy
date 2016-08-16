@@ -79,7 +79,7 @@ if args.batch: ROOT.gROOT.SetBatch(True)
 
 features = general+vertex+leptons
 
-filename = "./TTjets.root"
+filename = "../mvaVariableStudy_old/TTjets.root"
 treename = "tree"
 File = TFile(filename)
 tree = File.Get(treename)
@@ -268,9 +268,10 @@ for idx,ft in enumerate(features):
 	#
 	#	Kurtosis
 	#
-	kurtS = scpstats.kurtosis([i for i in values[y==1] if abs(i-default_value)>0.01 and i > minimum and i < maximum])
-	kurtSB = scpstats.kurtosis([i for i in values[y==1] if abs(i-default_value)>0.01 and i > minimum and i < maximum])/scpstats.kurtosis([i for i in values[y==0] if abs(i-default_value)>0.01 and i > minimum and i < maximum])
 	
+	kurtS = scpstats.kurtosis([i for i in values[y==1] if abs(i-default_value)>0.01 and i > minimum and i < maximum])
+	testtt = 0
+	kurtSB = scpstats.kurtosis([i for i in values[y==1] if abs(i-default_value)>0.01 and i > minimum and i < maximum])/scpstats.kurtosis([i for i in values[y==0] if abs(i-default_value)>0.01 and i > minimum and i < maximum])
 	
 	#
 	#	Alternating PDF
@@ -282,7 +283,6 @@ for idx,ft in enumerate(features):
 	elif deltaS != 0 and deltaB == 0: deltaSB = 0
 	else: deltaSB = float(deltaS)/float(deltaB)
 	
-	
 	#
 	#	Variable ranking scores
 	#
@@ -291,7 +291,6 @@ for idx,ft in enumerate(features):
 
 	ScoreAnova = 100*anova_scores[idx][1]/sum([anova_scores[i][1] for i in range(len(anova_scores))])
 	ScoreChi2 = 100*chi2_scores[idx][1]/sum([chi2_scores[i][1] for i in range(len(chi2_scores))])
-	
 
 	feat = Feature(ft,minimum, maximum, signalselection, bckgrselection, mathtype, corrS, corrSB, defaultFracS, defaultFracSB, varSB, kurtS, kurtSB, deltaS, deltaSB, ScoreAnova, ScoreChi2)
 	

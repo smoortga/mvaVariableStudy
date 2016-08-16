@@ -102,9 +102,15 @@ X_bkg = rootnp.rec2array(X_bkg)
 X = np.concatenate((X_sig,X_bkg))
 y = np.concatenate((np.ones(len(X_sig)),np.zeros(len(X_bkg))))
 
+training_event_sig = rootnp.root2array(args.InputFile,args.InputTree,"Training_Event",signal_selection,0,None,args.pickEvery,False,'weight')
+#training_event_sig = rootnp.rec2array(training_event_sig)
+training_event_bkg = rootnp.root2array(args.InputFile,args.InputTree,"Training_Event",bkg_selection,0,None,args.pickEvery,False,'weight')
+#training_event_bkg = rootnp.rec2array(training_event_bkg)
+training_event = np.concatenate((training_event_sig,training_event_bkg))
 
+if not os.path.isdir("./SuperMVA/"):os.makedirs("./SuperMVA/")
 	
-Classifiers_SuperMVA = Optimize("SuperMVA"+suffix,X,y,best_names,signal_selection,bkg_selection,True,'./DiscriminatorOutputs/discriminator_ntuple.root',Optmization_fraction = 0.1,train_test_splitting=0.5)
+Classifiers_SuperMVA = Optimize("SuperMVA"+suffix,X[training_event==1],y[training_event==1],best_names,signal_selection,bkg_selection,True,'./DiscriminatorOutputs/discriminator_ntuple.root',Optmization_fraction = 0.1,train_test_splitting=0.5)
 
 best_clf_SuperMVA_name,best_clf_SuperMVA = BestClassifier(Classifiers_SuperMVA,args.FoM,"SuperMVA"+suffix,best_names,signal_selection,bkg_selection,True,'./DiscriminatorOutputs/discriminator_ntuple.root')
 log.info('%s SuperMVA %s: Best classifier for SuperMVA is %s %s %s' %(Fore.GREEN,Fore.WHITE,Fore.BLUE,best_clf_SuperMVA_name,Fore.WHITE))
@@ -115,7 +121,7 @@ if args.includeAllType: pickle.dump( best_clf_SuperMVA_with_name, open( "./Super
 else: pickle.dump( best_clf_SuperMVA_with_name, open( "./SuperMVA/BestClassifierSuperMVA.pkl", "wb" ) )
 
 
-if not os.path.isdir("./SuperMVA/"):os.makedirs("./SuperMVA/")
+#if not os.path.isdir("./SuperMVA/"):os.makedirs("./SuperMVA/")
 if args.includeAllType: 
 	log.info('Done Processing SuperMVA, dumping output in ./SuperMVA/TrainingOutputs_withAll.pkl')
 	pickle.dump(Classifiers_SuperMVA,open( "./SuperMVA/TrainingOutputs_withAll.pkl", "wb" ))
@@ -133,13 +139,15 @@ else:
 ext_for_allTypeInclude = '/withoutAll/'
 if args.includeAllType: ext_for_allTypeInclude = '/withAll/'
 
+if not os.path.isdir('/'.join(args.InputFile.split('/')[0:-1])+"/SuperMVA"+ext_for_allTypeInclude):os.makedirs('/'.join(args.InputFile.split('/')[0:-1])+"/SuperMVA"+ext_for_allTypeInclude)
+
 branch_names = []
 for clf_name, clf in Classifiers_SuperMVA.iteritems():
 	DrawDiscrAndROCFromROOT(args.InputFile,args.InputTree,'/'.join(args.InputFile.split('/')[0:-1])+"/SuperMVA"+ext_for_allTypeInclude+"DiscriminantOverlayAndROC_SuperMVA"+suffix+"_"+clf_name+args.OutputExt,"SuperMVA_"+clf_name,"SuperMVA_"+clf_name,signal_selection,bkg_selection)
 	branch_names.append("SuperMVA_"+clf_name)
 
 combos =  list(itertools.combinations(branch_names,2))
-if not os.path.isdir('/'.join(args.InputFile.split('/')[0:-1])+"/SuperMVA"+ext_for_allTypeInclude):os.makedirs('/'.join(args.InputFile.split('/')[0:-1])+"/SuperMVA"+ext_for_allTypeInclude)
+#if not os.path.isdir('/'.join(args.InputFile.split('/')[0:-1])+"/SuperMVA"+ext_for_allTypeInclude):os.makedirs('/'.join(args.InputFile.split('/')[0:-1])+"/SuperMVA"+ext_for_allTypeInclude)
 for couple in combos:
 	Draw2dCorrHistFromROOT(args.InputFile,args.InputTree,'/'.join(args.InputFile.split('/')[0:-1])+"/SuperMVA"+ext_for_allTypeInclude+"Correlation2DHist_S_SuperMVA"+suffix+"_"+couple[0].split("_")[1]+"_"+couple[1].split("_")[1]+args.OutputExt,couple[0],couple[1],couple[0],couple[1],signal_selection)
 	Draw2dCorrHistFromROOT(args.InputFile,args.InputTree,'/'.join(args.InputFile.split('/')[0:-1])+"/SuperMVA"+ext_for_allTypeInclude+"Correlation2DHist_B_SuperMVA"+suffix+"_"+couple[0].split("_")[1]+"_"+couple[1].split("_")[1]+args.OutputExt,couple[0],couple[1],couple[0],couple[1],bkg_selection)	
