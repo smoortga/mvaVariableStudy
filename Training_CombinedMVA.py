@@ -18,7 +18,7 @@ parser.add_argument('--bkg', default='DUSG', help='background for training')
 parser.add_argument('--FoM', type=str, default = 'AUC', help='Which Figure or Merit (FoM) to use: AUC,PUR,ACC,OOP')
 parser.add_argument('--verbose', action='store_true')
 parser.add_argument('--Typesdir', default = os.getcwd()+'/Types/')
-parser.add_argument('--InputFile', default = os.getcwd()+'/DiscriminatorOutputs/discriminator_ntuple.root')
+parser.add_argument('--InputFile', default = os.getcwd()+'/DiscriminatorOutputs/discriminator_ntuple_scaled.root')
 parser.add_argument('--InputTree', default = 'tree')
 parser.add_argument('--OutputFile', default = 'ROC_comparison_combinedMVA.png')
 parser.add_argument('--OutputExt', default = '.png')
@@ -45,9 +45,10 @@ else:
 
 
 Types = [d for d in os.listdir(args.Typesdir) if not d.endswith('.pkl')]
-clf_names = ['GBC','RF','SVM','SGD','kNN','NB','MLP']
+clf_names = ['GBC','RF','SGD','NB','MLP']#'SVM','kNN'
 
 for idx,t in enumerate(Types):
+	#if idx < 3: continue
 	log.info('************ Processing Type (%s/%s): %s %s %s ****************' % (str(idx+1),str(len(Types)),Fore.GREEN,t,Fore.WHITE))
 	ty = t.replace("+","plus")
 	typ = ty.replace("-","minus")
@@ -63,6 +64,9 @@ for idx,t in enumerate(Types):
 	X = np.concatenate((X_sig,X_bkg))
 	y = np.concatenate((np.ones(len(X_sig)),np.zeros(len(X_bkg))))
 	
+	training_event_sig = rootnp.root2array(args.InputFile,args.InputTree,"Training_Event",signal_selection,0,None,args.pickEvery,False,'weight')
+	training_event_bkg = rootnp.root2array(args.InputFile,args.InputTree,"Training_Event",bkg_selection,0,None,args.pickEvery,False,'weight')
+	training_event = np.concatenate((training_event_sig,training_event_bkg))
 	
 	
 	#***************************************************************************
@@ -71,21 +75,21 @@ for idx,t in enumerate(Types):
 	#
 	#***************************************************************************
 	
-	Classifiers = Optimize(typ+"_COMB",X,y,disc_array,signal_selection,bkg_selection,True,'./DiscriminatorOutputs/discriminator_ntuple.root')
+	Classifiers = Optimize(typ+"_COMB",X[training_event==2],y[training_event==2],disc_array,signal_selection,bkg_selection,True,args.InputFile,Optmization_fraction = 0.2,train_test_splitting=0.5)
 		
 	outdir = args.Typesdir+t+"/"
 	pickle.dump(Classifiers,open( outdir+"TrainingOutputs_CombinedMVA.pkl", "wb" ))
 	
 	
 	
-	best_clf_name,best_clf = BestClassifier(Classifiers,args.FoM,typ+"_COMB",disc_array,signal_selection,bkg_selection,True,'./DiscriminatorOutputs/discriminator_ntuple.root')
+	best_clf_name,best_clf = BestClassifier(Classifiers,args.FoM,typ+"_COMB",disc_array,signal_selection,bkg_selection,True,args.InputFile)
 	best_clf_with_name = {}
 	best_clf_with_name['CombinedMVA']=(best_clf_name,best_clf)
 	pickle.dump( best_clf_with_name, open(  outdir+"BestClassifier_CombinedMVA.pkl", "wb" ) )
 	
 	for clf_name,clf in Classifiers.iteritems():
 		DrawDiscrAndROCFromROOT(args.InputFile,args.InputTree,'/'.join(args.InputFile.split('/')[0:-1])+"/Types/"+typ+"/DiscriminantOverlayAndROC_"+typ+"_COMB_"+clf_name+args.OutputExt,typ+"_COMB_"+clf_name,typ+"_COMB_"+clf_name,signal_selection,bkg_selection)
-	DrawDiscrAndROCFromROOT(args.InputFile,args.InputTree,'/'.join(args.InputFile.split('/')[0:-1])+"/Types/DiscriminantOverlayAndROC_"+typ+"_COMB_BEST_"+clf_name+args.OutputExt,typ+"_COMB_BEST_"+best_clf_name,typ+"_COMB_BEST_"+best_clf_name,signal_selection,bkg_selection)
+	DrawDiscrAndROCFromROOT(args.InputFile,args.InputTree,'/'.join(args.InputFile.split('/')[0:-1])+"/Types/DiscriminantOverlayAndROC_"+typ+"_COMB_BEST_"+best_clf_name+args.OutputExt,typ+"_COMB_BEST_"+best_clf_name,typ+"_COMB_BEST_"+best_clf_name,signal_selection,bkg_selection)
 	
 	
 	tmp = ROOT.TFile(args.InputFile)

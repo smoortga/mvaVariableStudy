@@ -9,7 +9,7 @@ parser.add_argument('--signal', default='C', help='signal for training')
 parser.add_argument('--bkg', default='DUSG', help='background for training')
 parser.add_argument('--FoM', type=str, default = 'AUC', help='Which Figure or Merit (FoM) to use: AUC,PUR,ACC,OOP')
 parser.add_argument('--pickEvery', type=int, default=5, help='pick one element every ...')
-parser.add_argument('--InputFile', default = os.getcwd()+'/DiscriminatorOutputs/discriminator_ntuple.root')
+parser.add_argument('--InputFile', default = os.getcwd()+'/DiscriminatorOutputs/discriminator_ntuple_scaled.root')
 parser.add_argument('--InputTree', default = 'tree')
 parser.add_argument('--OutputExt', default = '.png')
 
@@ -59,9 +59,11 @@ def proc_type(idx,ftype):
 	#training_event_bkg = rootnp.rec2array(training_event_bkg)
 	training_event = np.concatenate((training_event_sig,training_event_bkg))
 	
-	Classifiers = Optimize(typ,X[training_event==1],y[training_event==1],featurenames,signal_selection,bkg_selection,True,'./DiscriminatorOutputs/discriminator_ntuple.root',Optmization_fraction = 0.1,train_test_splitting=0.5)
+	#Classifiers = Optimize(typ,X[training_event==1],y[training_event==1],featurenames,signal_selection,bkg_selection,True,'./DiscriminatorOutputs/discriminator_ntuple.root',Optmization_fraction = 0.01,train_test_splitting=0.5)
+	Classifiers = Optimize(typ,X[training_event==1],y[training_event==1],featurenames,signal_selection,bkg_selection,True,args.InputFile,Optmization_fraction = 0.2,train_test_splitting=0.5)
 
-	best_clf_name,best_clf = BestClassifier(Classifiers,args.FoM,typ,featurenames,signal_selection,bkg_selection,True,'./DiscriminatorOutputs/discriminator_ntuple.root')
+
+	best_clf_name,best_clf = BestClassifier(Classifiers,args.FoM,typ,featurenames,signal_selection,bkg_selection,True,args.InputFile)
 
 	log.info('Done Processing Type: %s, dumping output in %sTrainingOutputs.pkl' % (ftype,typedir))
 	pickle.dump(Classifiers,open( typedir + "TrainingOutputs.pkl", "wb" ))

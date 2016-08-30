@@ -156,7 +156,8 @@ def Optimize(name,X,y,features_array,signal_selection,bkg_selection,DumpDiscrimi
 	#
 	log.info('%s %s %s: Starting to process %s Gradient Boosting Classifier %s' % (Fore.GREEN,name,Fore.WHITE,Fore.BLUE,Fore.WHITE))
 	
-	gbc_parameters = {'n_estimators':list([50,100,200]), 'max_depth':list([5,10,15]),'min_samples_split':list([int(0.005*len(X_train_skimmed)), int(0.01*len(X_train_skimmed))]), 'learning_rate':list([0.05,0.1])}
+	gbc_parameters = {'n_estimators':list([50,100,200]), 'max_depth':list([5,10,15]),'min_samples_split':list([int(0.005*len(X_train_skimmed)), int(0.01*len(X_train_skimmed))]), 'learning_rate':list([0.01,0.1,0.001])}
+	#gbc_parameters = {'n_estimators':list([100]), 'max_depth':list([15]),'min_samples_split':list([int(0.005*len(X_train_skimmed))]), 'learning_rate':list([0.01])}
 	gbc_clf = GridSearchCV(GradientBoostingClassifier(), gbc_parameters, n_jobs=-1, verbose=3, cv=2) if verbosity else GridSearchCV(GradientBoostingClassifier(), gbc_parameters, n_jobs=-1, verbose=0, cv=2)
 	gbc_clf.fit(X_train_skimmed,y_train_skimmed)
 	
@@ -178,6 +179,7 @@ def Optimize(name,X,y,features_array,signal_selection,bkg_selection,DumpDiscrimi
 	log.info('%s %s %s: Starting to process %s Randomized Forest Classifier %s' % (Fore.GREEN,name,Fore.WHITE,Fore.BLUE,Fore.WHITE))
 	
 	rf_parameters = {'n_estimators':list([50,100,200]), 'max_depth':list([5,10,15]),'min_samples_split':list([int(0.005*len(X_train_skimmed)), int(0.01*len(X_train_skimmed))]), 'max_features':list(["sqrt","log2",0.5])}
+	#rf_parameters = {'n_estimators':list([100]), 'max_depth':list([15]),'min_samples_split':list([int(0.005*len(X_train_skimmed))]), 'max_features':list(["sqrt"])}
 	rf_clf = GridSearchCV(RandomForestClassifier(n_jobs=5), rf_parameters, n_jobs=-1, verbose=3, cv=2) if verbosity else GridSearchCV(RandomForestClassifier(n_jobs=5), rf_parameters, n_jobs=-1, verbose=0, cv=2)
 	rf_clf.fit(X_train_skimmed,y_train_skimmed)
 	
@@ -196,9 +198,10 @@ def Optimize(name,X,y,features_array,signal_selection,bkg_selection,DumpDiscrimi
 	#
 	# Stochastic Gradient Descent
 	#
+
 	log.info('%s %s %s: Starting to process %s Stochastic Gradient Descent %s' % (Fore.GREEN,name,Fore.WHITE,Fore.BLUE,Fore.WHITE))
 	
-	sgd_parameters = {'loss':list(['log','modified_huber']), 'penalty':list(['l2','l1','elasticnet']),'alpha':list([0.0001,0.00005,0.001]), 'n_iter':list([10,50,100])}
+	sgd_parameters = {'loss':list(['log']), 'penalty':list(['l2']),'alpha':list([0.0001]), 'n_iter':list([100])}
 	sgd_clf = GridSearchCV(SGDClassifier(learning_rate='optimal'), sgd_parameters, n_jobs=-1, verbose=3, cv=2) if verbosity else GridSearchCV(SGDClassifier(learning_rate='optimal'), sgd_parameters, n_jobs=-1, verbose=0, cv=2)
 	sgd_clf.fit(X_train_skimmed,y_train_skimmed)
 	
@@ -211,15 +214,16 @@ def Optimize(name,X,y,features_array,signal_selection,bkg_selection,DumpDiscrimi
 	sgd_fpr, sgd_tpr, sgd_thresholds = roc_curve(y_test, sgd_disc)
 	
 	Classifiers["SGD"]=(sgd_best_clf,y_test,sgd_disc,sgd_fpr,sgd_tpr,sgd_thresholds)
-	
+
 	
 	
 	#
 	# Nearest Neighbors
 	#
+	"""
 	log.info('%s %s %s: Starting to process %s Nearest Neighbors %s' % (Fore.GREEN,name,Fore.WHITE,Fore.BLUE,Fore.WHITE))
 	
-	knn_parameters = {'n_neighbors':list([5,10,50,100]), 'algorithm':list(['ball_tree','kd_tree','brute']),'leaf_size':list([20,30,40]), 'metric':list(['euclidean','minkowski','manhattan','chebyshev'])}
+	knn_parameters = {'n_neighbors':list([5,10,20,30]), 'algorithm':list(['ball_tree','kd_tree','brute']),'leaf_size':list([20,30,40]), 'metric':list(['euclidean','minkowski','manhattan','chebyshev'])}
 	knn_clf = GridSearchCV(KNeighborsClassifier(), knn_parameters, n_jobs=-1, verbose=3, cv=2) if verbosity else GridSearchCV(KNeighborsClassifier(), knn_parameters, n_jobs=-1, verbose=0, cv=2)
 	knn_clf.fit(X_train_skimmed,y_train_skimmed)
 	
@@ -232,7 +236,7 @@ def Optimize(name,X,y,features_array,signal_selection,bkg_selection,DumpDiscrimi
 	knn_fpr, knn_tpr, knn_thresholds = roc_curve(y_test, knn_disc)
 	
 	Classifiers["kNN"]=(knn_best_clf,y_test,knn_disc,knn_fpr,knn_tpr,knn_thresholds)
-	
+	"""
 	
 	
 	
@@ -258,8 +262,9 @@ def Optimize(name,X,y,features_array,signal_selection,bkg_selection,DumpDiscrimi
 	#
 	log.info('%s %s %s: Starting to process %s Multi-Layer Perceptron (Neural Network) %s' % (Fore.GREEN,name,Fore.WHITE,Fore.BLUE,Fore.WHITE))
 	
-	mlp_parameters = {'activation':list(['tanh','relu']), 'hidden_layer_sizes':list([10,(5,10),(10,15)]), 'algorithm':list(['adam']), 'alpha':list([0.0001,0.00005]), 'tol':list([0.00001,0.00005,0.0001]), 'learning_rate_init':list([0.001,0.005,0.0005])}
-	mlp_clf = GridSearchCV(MLPClassifier(max_iter = 500), mlp_parameters, n_jobs=-1, verbose=3, cv=2) if verbosity else GridSearchCV(MLPClassifier(max_iter = 500), mlp_parameters, n_jobs=-1, verbose=0, cv=2) #learning_rate = 'adaptive'
+	mlp_parameters = {'early_stopping':list([True,False]),'activation':list(['tanh','relu']), 'hidden_layer_sizes':list([(5,10),(10,15),(20,50)]), 'algorithm':list(['adam']), 'alpha':list([0.0001,0.00005]), 'tol':list([0.00001]), 'learning_rate_init':list([0.001,0.005,0.0005])}
+	#mlp_parameters = {'activation':list(['relu']), 'hidden_layer_sizes':list([(50,50,50)]), 'algorithm':list(['adam']), 'alpha':list([0.00001]), 'tol':list([0.00001]), 'learning_rate_init':list([0.001])}
+	mlp_clf = GridSearchCV(MLPClassifier(max_iter = 100), mlp_parameters, n_jobs=-1, verbose=3, cv=2) if verbosity else GridSearchCV(MLPClassifier(max_iter = 100), mlp_parameters, n_jobs=-1, verbose=0, cv=2) #learning_rate = 'adaptive'
 	mlp_clf.fit(X_train_skimmed,y_train_skimmed)
 	
 	mlp_best_clf = mlp_clf.best_estimator_
@@ -280,6 +285,7 @@ def Optimize(name,X,y,features_array,signal_selection,bkg_selection,DumpDiscrimi
 	#
 	# Support Vector Machine
 	#
+	"""
 	log.info('%s %s %s: Starting to process %s Support Vector Machine %s' % (Fore.GREEN,name,Fore.WHITE,Fore.BLUE,Fore.WHITE))
 	
 	svm_parameters = {'kernel':list(['rbf']), 'gamma':list(['auto',0.05]), 'C':list([0.9,1.0])}
@@ -296,12 +302,16 @@ def Optimize(name,X,y,features_array,signal_selection,bkg_selection,DumpDiscrimi
 	
 	Classifiers["SVM"]=(svm_best_clf,y_test,svm_disc,svm_fpr,svm_tpr,svm_thresholds)
 	
+	"""
 	
 	if DumpDiscriminators:
 		XX = rootnp.root2array(DumpFile,'tree',features_array,None,0,None,None,False,'weight')
 		XX = rootnp.rec2array(XX)
 		
-		ordered_MVAs = ['GBC','RF','SVM','SGD','kNN','NB','MLP']
+		ordered_MVAs = ['GBC','RF','SGD','NB','MLP']
+		#ordered_MVAs = ['GBC','RF','NB','MLP']
+		#ordered_MVAs = ['GBC','RF','SVM','SGD','kNN','NB','MLP']
+		
 		dict_Discriminators = {}
 		for c in ordered_MVAs:
 			classifier = Classifiers[c][0]
@@ -347,6 +357,10 @@ def Optimize(name,X,y,features_array,signal_selection,bkg_selection,DumpDiscrimi
 	
 	
 	return Classifiers
+
+
+
+
 
 
 
@@ -517,8 +531,8 @@ def DrawDiscrAndROCFromROOT(infile,intree,outfile,branchname,axisname,signalsele
 	hist_sig = ROOT.TH1D("hist_sig",";"+axisname+";Normalized Entries/("+str(float(xmax-xmin)/float(nbins))+")",nbins,xmin,xmax)
 	hist_bkg = ROOT.TH1D("hist_bkg",";"+axisname+";Normalized Entries/("+str(float(xmax-xmin)/float(nbins))+")",nbins,xmin,xmax)
 	
-	ttree.Draw(branchname+" >> hist_sig",signalselection)
-	ttree.Draw(branchname+" >> hist_bkg",backgroundselection)
+	ttree.Draw(branchname+" >> hist_sig",signalselection+" && Training_Event == 0")
+	ttree.Draw(branchname+" >> hist_bkg",backgroundselection+" && Training_Event == 0")
 	
 	ROOT.gStyle.SetOptStat(0)
 	c = ROOT.TCanvas("c","c",1250,650)
@@ -564,9 +578,9 @@ def DrawDiscrAndROCFromROOT(infile,intree,outfile,branchname,axisname,signalsele
 	#
 	#	DRAW ROC CURVE
 	#
-	treeArray_sig = rootnp.root2array(infile,intree,branchname,signalselection,0,None,None,False,'weight')
+	treeArray_sig = rootnp.root2array(infile,intree,branchname,signalselection+" && Training_Event == 0",0,None,None,False,'weight')
 	X_sig = [i for i in treeArray_sig] #rootnp.rec2array(treeArray_sig)
-	treeArray_bkg = rootnp.root2array(infile,intree,branchname,backgroundselection,0,None,None,False,'weight')
+	treeArray_bkg = rootnp.root2array(infile,intree,branchname,backgroundselection+" && Training_Event == 0",0,None,None,False,'weight')
 	X_bkg = [i for i in treeArray_bkg]#rootnp.rec2array(treeArray_bkg)
 	
 	X = np.concatenate((X_sig,X_bkg))
@@ -610,19 +624,19 @@ def DrawROCOverlaysFromROOT(infile,intree,outfile,brancharray,signalselection,ba
 	GraphArray = {}
 	colors = [1,2,3,4,5,6,7,8,9]
 	for br in brancharray:
-		treeArray_sig = rootnp.root2array(infile,intree,br,signalselection,0,None,None,False,'weight')
+		treeArray_sig = rootnp.root2array(infile,intree,br,signalselection+" && Training_Event == 0",0,None,None,False,'weight')
 		X_sig = [i for i in treeArray_sig]
-		treeArray_bkg = rootnp.root2array(infile,intree,br,backgroundselection,0,None,None,False,'weight')
+		treeArray_bkg = rootnp.root2array(infile,intree,br,backgroundselection+" && Training_Event == 0",0,None,None,False,'weight')
 		X_bkg = [i for i in treeArray_bkg]
 		
-		training_event_sig = rootnp.root2array(infile,intree,"Training_Event",signalselection,0,None,None,False,'weight')
-		training_event_bkg = rootnp.root2array(infile,intree,"Training_Event",backgroundselection,0,None,None,False,'weight')
-		training_event = np.concatenate((training_event_sig,training_event_bkg))
+		#training_event_sig = rootnp.root2array(infile,intree,"Training_Event",signalselection,0,None,None,False,'weight')
+		#training_event_bkg = rootnp.root2array(infile,intree,"Training_Event",backgroundselection,0,None,None,False,'weight')
+		#training_event = np.concatenate((training_event_sig,training_event_bkg))
 		
 		X = np.concatenate((X_sig,X_bkg))
 		y = np.concatenate((np.ones(len(X_sig)),np.zeros(len(X_bkg))))
-		fpr, tpr, thresholds = roc_curve(y[training_event==0], X[training_event==0])
-		AUC = 1-roc_auc_score(y[training_event==0],X[training_event==0])
+		fpr, tpr, thresholds = roc_curve(y, X)
+		AUC = 1-roc_auc_score(y,X)
 		
 		GraphArray[br] = (ROOT.TGraph(len(fpr),tpr,fpr),AUC)
 	
@@ -689,7 +703,7 @@ def RemoveBranchesFromTree(infile,intree,DumpFile,branch_remove_string=""):
 	log.info('Done: output file dumped in %s' %DumpFile)	
 		
 
-#RemoveBranchesFromTree("./DiscriminatorOutputs/discriminator_ntuple.root","tree","./DiscriminatorOutputs/discriminator_ntuple.root","defSminus05")		
+#RemoveBranchesFromTree("./DiscriminatorOutputs/discriminator_ntuple_scaled.root","tree","./DiscriminatorOutputs/discriminator_ntuple_scaled.root","COMB")		
 #ROOT.gROOT.SetBatch(True)
 #Draw2dCorrHistFromROOT("./DiscriminatorOutputs/discriminator_ntuple.root","tree","./test.png","SuperMVA_BEST_RF","SuperMVA_withAll_BEST_GBC","SuperMVA_BEST_RF","SuperMVA_withAll_BEST_GBC", "flavour == 4",1,50,0,1,0,1)	
 #DrawCorrelationMatrixFromROOT("./DiscriminatorOutputs/discriminator_ntuple.root","tree","./test2.png",["SuperMVA_BEST_RF","SuperMVA_withAll_BEST_GBC"],"flavour == 4",50)	

@@ -38,7 +38,7 @@ parser.add_argument('--FoM', type=str, default = 'AUC', help='Which Figure or Me
 parser.add_argument('--pickEvery', type=int, default=1, help='pick one element every ...')
 parser.add_argument('--signal', default='C', help='signal for training')
 parser.add_argument('--bkg', default='DUSG', help='background for training')
-parser.add_argument('--InputFile', default = os.getcwd()+'/DiscriminatorOutputs/discriminator_ntuple.root')
+parser.add_argument('--InputFile', default = os.getcwd()+'/DiscriminatorOutputs/discriminator_ntuple_scaled.root')
 parser.add_argument('--InputTree', default = 'tree')
 parser.add_argument('--OutputExt', default = '.png')
 
@@ -110,9 +110,9 @@ training_event = np.concatenate((training_event_sig,training_event_bkg))
 
 if not os.path.isdir("./SuperMVA/"):os.makedirs("./SuperMVA/")
 	
-Classifiers_SuperMVA = Optimize("SuperMVA"+suffix,X[training_event==1],y[training_event==1],best_names,signal_selection,bkg_selection,True,'./DiscriminatorOutputs/discriminator_ntuple.root',Optmization_fraction = 0.1,train_test_splitting=0.5)
+Classifiers_SuperMVA = Optimize("SuperMVA"+suffix,X[training_event==2],y[training_event==2],best_names,signal_selection,bkg_selection,True,args.InputFile,Optmization_fraction = 0.1,train_test_splitting=0.5)
 
-best_clf_SuperMVA_name,best_clf_SuperMVA = BestClassifier(Classifiers_SuperMVA,args.FoM,"SuperMVA"+suffix,best_names,signal_selection,bkg_selection,True,'./DiscriminatorOutputs/discriminator_ntuple.root')
+best_clf_SuperMVA_name,best_clf_SuperMVA = BestClassifier(Classifiers_SuperMVA,args.FoM,"SuperMVA"+suffix,best_names,signal_selection,bkg_selection,True,args.InputFile)
 log.info('%s SuperMVA %s: Best classifier for SuperMVA is %s %s %s' %(Fore.GREEN,Fore.WHITE,Fore.BLUE,best_clf_SuperMVA_name,Fore.WHITE))
 if args.verbose: log.info('Details: %s' % str(best_clf_SuperMVA[ftype]))
 best_clf_SuperMVA_with_name = {}

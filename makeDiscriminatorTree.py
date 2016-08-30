@@ -36,7 +36,7 @@ parser.add_argument('--InputFile', default = os.getcwd()+'/TTjets.root')
 parser.add_argument('--InputTree', default = 'tree')
 parser.add_argument('--OutputDir', default = os.getcwd()+'/DiscriminatorOutputs/')
 parser.add_argument('--OutputFile', default = 'discriminator_ntuple.root')
-parser.add_argument('--pickEvery', type=int, default=None, help='pick one element every ...')
+parser.add_argument('--pickEvery', type=int, default=1, help='pick one element every ...')
 parser.add_argument('--elements_per_sample', type=int, default=None, help='consider only the first ... elements in the sample')
 
 args = parser.parse_args()
@@ -54,6 +54,7 @@ input_tree.SetBranchStatus("*",0)
 for ft in general+vertex+leptons:
 	input_tree.SetBranchStatus(ft,1)
 input_tree.SetBranchStatus("flavour",1)
+input_tree.SetBranchStatus("vertexLeptonCategory",1)
 if not os.path.isdir(args.OutputDir): os.makedirs(args.OutputDir)
 outfile = TFile(args.OutputDir+args.OutputFile,'RECREATE')
 tree = input_tree.CloneTree(0)
@@ -76,8 +77,9 @@ for i in range(nEntries):
 	if counter%10000 == 0: log.info('Processing event %s/%s (%s%.2f%s%%)' %(counter,nEntries_toprocess,Fore.GREEN,100*float(counter)/float(nEntries_toprocess),Fore.WHITE))
 	input_tree.GetEntry(i)
 	rand = random()
-	if rand>0.5:branch_array[0]=0
-	else: branch_array[0]=1
+	if rand>0.66:branch_array[0]=0
+	elif rand>0.33 and rand<=0.66:branch_array[0]=1 # 1 is for training the normal types
+	else: branch_array[0]=2 # 2 is for training the Super and Combined MVAs
 	tree.Fill()
 	counter += 1
 
