@@ -22,6 +22,7 @@ import thread
 import subprocess
 from features import *
 from Helper import DrawDiscrAndROCFromROOT 
+import random
 
 from sklearn.metrics import roc_curve
 from sklearn.model_selection import GridSearchCV
@@ -46,7 +47,7 @@ from sklearn.neural_network import MLPClassifier
 class combClassifier:
 	""" This is a Wrapper class for an ensemble classifier that trains different sub-classifiers and combines them in one final classifier """
 	
-	def __init__(self, signal_selection,bkg_selection,name='COMB_MVA', clfs = ['GBC','RF','SGD','NB','MLP'],FoM = "AUC",Optmization_fraction = 0.1,train_test_splitting=0.33):
+	def __init__(self, signal_selection,bkg_selection,name='COMB_MVA', clfs = ['GBC','RF','SGD','NB','MLP'],FoM = "AUC",Optmization_fraction = 0.1,train_test_splitting=0.33,Bagging_fraction = 0.33):
 		self._name=name
 		self._clfNames = clfs
 		assert FoM == 'AUC' or FoM == 'OOP' or FoM == 'ACC' or FoM == 'PUR', "Invalid Figure of Merit: " + FoM
@@ -61,6 +62,15 @@ class combClassifier:
 		self._optFrac = Optmization_fraction
 		self._trainTestSplit = train_test_splitting
 		self._BestClfName = None
+		self._Bagging_fraction=Bagging_fraction
+	
+	def bagged(self,mode,X,y):
+		# returns a random subsample of size self._Bagging_fraction of (X,y)
+		if mode == "Combined": return X,y
+		indices = range(0,len(X))
+		n_select = int(self._Bagging_fraction*len(X))
+		bagged_indices = random.sample(indices, n_select)
+		return [X[idx] for idx in bagged_indices],[y[idx] for idx in bagged_indices]
 			
 	def Optimize(self,X,y,mode="Individual"): #mode = "Individual" or "Combined"
 		#X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=self._trainTestSplit)
@@ -69,8 +79,8 @@ class combClassifier:
 		
 		
 		clf_dict = {
-			"GBC":(GradientBoostingClassifier(),{'n_estimators':list([50,100,200]), 'max_depth':list([5,10,15]),'min_samples_split':list([int(0.005*len(X_skimmed)), int(0.01*len(X_skimmed))]), 'learning_rate':list([0.01,0.1,0.001])}),
-			"RF":(RandomForestClassifier(n_jobs=5),{'n_estimators':list([50,100,200]), 'max_depth':list([5,10,15]),'min_samples_split':list([int(0.005*len(X_skimmed)), int(0.01*len(X_skimmed))]), 'max_features':list(["sqrt","log2",0.5])}),
+			"GBC":(GradientBoostingClassifier(),{'n_estimators':list([50,100,200]), 'max_depth':list([5,10,15]),'min_samples_split':list([max([int(0.005*len(X_skimmed)),3]), max([int(0.01*len(X_skimmed)),3])]), 'learning_rate':list([0.01,0.1,0.001])}),
+			"RF":(RandomForestClassifier(n_jobs=5),{'n_estimators':list([50,100,200]), 'max_depth':list([5,10,15]),'min_samples_split':list([max([int(0.005*len(X_skimmed)),3]), max([int(0.01*len(X_skimmed)),3])]), 'max_features':list(["sqrt","log2",0.5])}),
 			"MLP":(MLPClassifier(max_iter = 100),{'early_stopping':list([True,False]),'activation':list(['tanh','relu']), 'hidden_layer_sizes':list([(5,10),(10,15),(20,50)]), 'algorithm':list(['adam']), 'alpha':list([0.0001,0.00005]), 'tol':list([0.00001]), 'learning_rate_init':list([0.001,0.005,0.0005])}),
 			"SGD":(SGDClassifier(learning_rate='optimal'),{'loss':list(['log']), 'penalty':list(['l2']),'alpha':list([0.001,0.0001]), 'n_iter':list([50,100])}),
 			"KNN":(KNeighborsClassifier(),{'n_neighbors':list([5,10,20,30]), 'algorithm':list(['ball_tree','kd_tree','brute']),'leaf_size':list([20,30,40]), 'metric':list(['euclidean','minkowski','manhattan','chebyshev'])}),
@@ -84,13 +94,16 @@ class combClassifier:
 		#
 		if "GBC" in self._clfNames:
 			log.info('%s %s %s: Starting to process %s Gradient Boosting Classifier %s' % (Fore.GREEN,self._name+" ("+mode+")",Fore.WHITE,Fore.BLUE,Fore.WHITE))
-	
+			
+			X_skimmed_bagged, y_skimmed_bagged = self.bagged(mode,X_skimmed,y_skimmed)
+			X_bagged, y_bagged = self.bagged(mode,X,y)
+			
 			gbc_clf = GridSearchCV(clf_dict["GBC"][0],clf_dict["GBC"][1], n_jobs=-1, verbose=1, cv=2)
-			gbc_clf.fit(X_skimmed,y_skimmed)
+			gbc_clf.fit(X_skimmed_bagged,y_skimmed_bagged)
 	
 			gbc_best_clf = gbc_clf.best_estimator_
 			gbc_best_clf.verbose = 0
-			gbc_best_clf.fit(X,y)
+			gbc_best_clf.fit(X_bagged,y_bagged)
 			gbc_disc = gbc_best_clf.predict_proba(X)[:,1]
 	
 			if mode=="Individual": self._individualClfs["GBC"] = (gbc_best_clf,gbc_disc)
@@ -102,13 +115,16 @@ class combClassifier:
 		#
 		if "RF" in self._clfNames:
 			log.info('%s %s %s: Starting to process %s Randomized Forest Classifier %s' % (Fore.GREEN,self._name+" ("+mode+")",Fore.WHITE,Fore.BLUE,Fore.WHITE))
-	
+			
+			X_skimmed_bagged, y_skimmed_bagged = self.bagged(mode,X_skimmed,y_skimmed)
+			X_bagged, y_bagged = self.bagged(mode,X,y)
+			
 			rf_clf = GridSearchCV(clf_dict["RF"][0], clf_dict["RF"][1], n_jobs=-1, verbose=0, cv=2)
-			rf_clf.fit(X_skimmed,y_skimmed)
+			rf_clf.fit(X_skimmed_bagged,y_skimmed_bagged)
 	
 			rf_best_clf = rf_clf.best_estimator_
 			rf_best_clf.verbose = 0
-			rf_best_clf.fit(X,y)
+			rf_best_clf.fit(X_bagged,y_bagged)
 			rf_disc = rf_best_clf.predict_proba(X)[:,1]
 	
 			if mode=="Individual": self._individualClfs["RF"] = (rf_best_clf,rf_disc)
@@ -121,13 +137,16 @@ class combClassifier:
 		#
 		if "SGD" in self._clfNames:
 			log.info('%s %s %s: Starting to process %s Stochastic Gradient Descent %s' % (Fore.GREEN,self._name+" ("+mode+")",Fore.WHITE,Fore.BLUE,Fore.WHITE))
-	
+			
+			X_skimmed_bagged, y_skimmed_bagged = self.bagged(mode,X_skimmed,y_skimmed)
+			X_bagged, y_bagged = self.bagged(mode,X,y)
+			
 			sgd_clf = GridSearchCV(clf_dict["SGD"][0], clf_dict["SGD"][1], n_jobs=-1, verbose=0, cv=2)	
-			sgd_clf.fit(X_skimmed,y_skimmed)
+			sgd_clf.fit(X_skimmed_bagged,y_skimmed_bagged)
 	
 			sgd_best_clf = sgd_clf.best_estimator_
 			sgd_best_clf.verbose = 0
-			sgd_best_clf.fit(X,y)
+			sgd_best_clf.fit(X_bagged,y_bagged)
 			sgd_disc = sgd_best_clf.predict_proba(X)[:,1]
 		
 			if mode=="Individual": self._individualClfs["SGD"] = (sgd_best_clf,sgd_disc)
@@ -139,12 +158,15 @@ class combClassifier:
 		if "KNN" in self._clfNames:
 			log.info('%s %s %s: Starting to process %s Nearest Neighbors %s' % (Fore.GREEN,self._name+" ("+mode+")",Fore.WHITE,Fore.BLUE,Fore.WHITE))
 	
+			X_skimmed_bagged, y_skimmed_bagged = self.bagged(mode,X_skimmed,y_skimmed)
+			X_bagged, y_bagged = self.bagged(mode,X,y)
+			
 			knn_clf = GridSearchCV(clf_dict["KNN"][0], clf_dict["KNN"][1], n_jobs=-1, verbose=0, cv=2)
-			knn_clf.fit(X_skimmed,y_skimmed)
+			knn_clf.fit(X_skimmed_bagged,y_skimmed_bagged)
 	
 			knn_best_clf = knn_clf.best_estimator_
 			knn_best_clf.verbose = 0
-			knn_best_clf.fit(X,y)
+			knn_best_clf.fit(X_bagged,y_bagged)
 			knn_disc = knn_best_clf.predict_proba(X)[:,1]
 	
 			if mode=="Individual": self._individualClfs["KNN"] = (knn_best_clf,knn_disc)
@@ -156,10 +178,13 @@ class combClassifier:
 		#
 		if "NB" in self._clfNames:
 			log.info('%s %s %s: Starting to process %s Naive Bayes (Likelihood Ratio) %s' % (Fore.GREEN,self._name+" ("+mode+")",Fore.WHITE,Fore.BLUE,Fore.WHITE))
-	
+			
+			X_skimmed_bagged, y_skimmed_bagged = self.bagged(mode,X_skimmed,y_skimmed)
+			X_bagged, y_bagged = self.bagged(mode,X,y)
+			
 			nb_best_clf = clf_dict["NB"][0] # There is no tuning of a likelihood ratio!
 			nb_best_clf.verbose = 0
-			nb_best_clf.fit(X,y)
+			nb_best_clf.fit(X_bagged,y_bagged)
 			nb_disc = nb_best_clf.predict_proba(X)[:,1]
 			
 			if mode=="Individual": self._individualClfs["NB"] = (nb_best_clf,nb_disc)
@@ -172,13 +197,16 @@ class combClassifier:
 		#
 		if "MLP" in self._clfNames:
 			log.info('%s %s %s: Starting to process %s Multi-Layer Perceptron (Neural Network) %s' % (Fore.GREEN,self._name+" ("+mode+")",Fore.WHITE,Fore.BLUE,Fore.WHITE))
-	
+			
+			X_skimmed_bagged, y_skimmed_bagged = self.bagged(mode,X_skimmed,y_skimmed)
+			X_bagged, y_bagged = self.bagged(mode,X,y)
+			
 			mlp_clf = GridSearchCV(clf_dict["MLP"][0], clf_dict["MLP"][1], n_jobs=-1, verbose=0, cv=2)
-			mlp_clf.fit(X_skimmed,y_skimmed)
+			mlp_clf.fit(X_skimmed_bagged,y_skimmed_bagged)
 	
 			mlp_best_clf = mlp_clf.best_estimator_
 			mlp_best_clf.verbose = 0
-			mlp_best_clf.fit(X,y)
+			mlp_best_clf.fit(X_bagged,y_bagged)
 			mlp_disc = mlp_best_clf.predict_proba(X)[:,1]
 			
 			if mode=="Individual": self._individualClfs["MLP"] = (mlp_best_clf,mlp_disc)
@@ -194,13 +222,16 @@ class combClassifier:
 		#
 		if "SVM" in self._clfNames:	
 			log.info('%s %s %s: Starting to process %s Support Vector Machine %s' % (Fore.GREEN,self._name+" ("+mode+")",Fore.WHITE,Fore.BLUE,Fore.WHITE))
-	
+			
+			X_skimmed_bagged, y_skimmed_bagged = self.bagged(mode,X_skimmed,y_skimmed)
+			X_bagged, y_bagged = self.bagged(mode,X,y)
+			
 			svm_clf = GridSearchCV(clf_dict["SVM"][0], clf_dict["SVM"][1], n_jobs=-1, verbose=0, cv=2)
-			svm_clf.fit(X_skimmed,y_skimmed)
-	
+			svm_clf.fit(X_skimmed_bagged,y_skimmed_bagged)
+			
 			svm_best_clf = svm_clf.best_estimator_
 			svm_best_clf.verbose = 0
-			svm_best_clf.fit(X,y)
+			svm_best_clf.fit(X_bagged,y_bagged)
 			svm_disc = svm_best_clf.predict_proba(X)[:,1]
 	
 			if mode=="Individual": self._individualClfs["SVM"] = (svm_best_clf,svm_disc)
