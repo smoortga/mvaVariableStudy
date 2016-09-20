@@ -51,7 +51,7 @@ categories_dict = {
 	"NovertexNoSL":general
 }
 
-
+"""
 tree_dict = {}
 clf_dict = {}
 for name, features in categories_dict.iteritems():
@@ -101,11 +101,11 @@ clf_dict["All"] = combClassifier(signal_selection,bkg_selection,name="ALL_COMB")
 
 pickle.dump(tree_dict,open('tree_dict_Categories.p','wb'))
 #******************************************************
+"""
 
-
-#tree_dict = pickle.load(open('tree_dict_Categories.p','rb'))
-#discr_dict = pickle.load(open('discr_dict_Categories.p','rb'))
-#clf_dict = pickle.load(open('clf_dict_Categories.p','rb'))
+tree_dict = pickle.load(open('tree_dict_Categories.p','rb'))
+discr_dict = pickle.load(open('discr_dict_Categories.p','rb'))
+clf_dict = pickle.load(open('clf_dict_Categories.p','rb'))
 
 total_nEvents_test_sig = tree_dict["vertexSL"][4]+tree_dict["vertexNoSL"][4]+tree_dict["NovertexSL"][4]+tree_dict["NovertexNoSL"][4]
 total_nEvents_test_bkg = tree_dict["vertexSL"][5]+tree_dict["vertexNoSL"][5]+tree_dict["NovertexSL"][5]+tree_dict["NovertexNoSL"][5]
@@ -126,7 +126,7 @@ style_dict = { # line color, line style, subpad
 #
 #
 
-
+"""
 discr_dict = {}
 for name, info in tree_dict.iteritems():
 	log.info('Training/validating classifier with name %s%s%s' % (Fore.GREEN,name,Fore.WHITE))
@@ -142,7 +142,7 @@ for name, info in tree_dict.iteritems():
 	discr_dict[name]=(discriminators,AUC,fpr,tpr,thresholds,discriminators_train,AUC_train,fpr_train,tpr_train,thresholds_train)
 pickle.dump(discr_dict,open('discr_dict_Categories.p','wb'))
 pickle.dump(clf_dict,open('clf_dict_Categories.p','wb'))
-
+"""
 #log.info("len(X_train): %i, len(y_train): %i,      len(X_test): %i, len(y_test): %i" %(len(tree_dict["vertexNoSL"][0]),len(tree_dict["vertexNoSL"][1]),len(tree_dict["vertexNoSL"][2]),len(tree_dict["vertexNoSL"][3])))
 
 ## EXTRA: test overtraining
@@ -447,7 +447,7 @@ if args.DrawEnvelopeCombinationsROC:
 		fpr_test = discr_dict[name][2]
 		tpr_test = discr_dict[name][3]
 		thresholds_test = discr_dict[name][4]
-		ncuts = 40.
+		ncuts = 50.
 		cuts = np.arange(0,1,1./ncuts)
 		bagged_indices = sorted([(np.abs(thresholds_test-value)).argmin() for value in cuts])
 		roc_dict[name]=([fpr_test[idx]*float(info[5])/float(total_nEvents_test_bkg) for idx in bagged_indices], [tpr_test[idx]*float(info[4])/float(total_nEvents_test_sig) for idx in bagged_indices], [thresholds_test[idx] for idx in bagged_indices])
@@ -457,18 +457,19 @@ if args.DrawEnvelopeCombinationsROC:
 	
 	roc_envelope = ROOT.TGraph(len(comb_fpr),np.asarray(comb_tpr),np.asarray(comb_fpr))
 	roc_envelope.SetFillColor(1)
-	l_roc_bis = ROOT.TLegend(0.45,0.2,0.9,0.48)
+	l_roc_bis = ROOT.TLegend(0.17,0.5,0.5,0.85)
 	l_roc_bis.SetFillColor(0)
 	l_roc_bis.SetFillStyle(0)
 	l_roc_bis.SetBorderSize(0)
 	#l_roc_bis.SetHeader("Categroy (AUC score)")
 	c3 = ROOT.TCanvas("c3","c3",800,600)
-	ROOT.gPad.SetLogy(1)
+	ROOT.gPad.SetLogy(0)
 	ROOT.gPad.SetMargin(0.15,0.1,0.15,0.1)
 	ROOT.gPad.SetGrid(1,1)
 	ROOT.gStyle.SetGridColor(17)
 	mg2 = ROOT.TMultiGraph("mg2","")
 	mg2.Add(roc_envelope)
+	roc_all.SetMarkerStyle(1)
 	mg2.Add(roc_all)
 	#mg2.Add(roc_comb)
 	mg2.Draw("AP")
@@ -487,8 +488,8 @@ if args.DrawEnvelopeCombinationsROC:
 	
 	l_roc_bis.AddEntry(roc_envelope,"Scan categories","f")
 	l_roc_bis.AddEntry(roc_all,"Summed","l")
-	l_roc_bis.AddEntry(roc_comb,"Combined","l")
-	l_roc_bis.AddEntry(graphs_dict["All"][0],"All","l")
+	l_roc_bis.AddEntry(roc_comb,"Fixed #epsilon^{B}","l")
+	l_roc_bis.AddEntry(graphs_dict["All"][0],"All fts","l")
 	l_roc_bis.Draw("same")
 	
 	c3.SaveAs("ROC_envelope_combined.png")

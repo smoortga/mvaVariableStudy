@@ -47,7 +47,7 @@ from sklearn.neural_network import MLPClassifier
 class combClassifier:
 	""" This is a Wrapper class for an ensemble classifier that trains different sub-classifiers and combines them in one final classifier """
 	
-	def __init__(self, signal_selection,bkg_selection,name='COMB_MVA', clfs = ['GBC','RF','SGD','NB','MLP'],FoM = "AUC",Optmization_fraction = 0.1,train_test_splitting=0.33,Bagging_fraction = 0.33):
+	def __init__(self, signal_selection,bkg_selection,name='COMB_MVA', clfs = ['GBC','RF','SGD','NB','MLP'],FoM = "AUC",Optmization_fraction = 0.1,train_test_splitting=0.33,Bagging_fraction = 0.30):
 		self._name=name
 		self._clfNames = clfs
 		assert FoM == 'AUC' or FoM == 'OOP' or FoM == 'ACC' or FoM == 'PUR', "Invalid Figure of Merit: " + FoM
@@ -280,10 +280,10 @@ class combClassifier:
 				Acc = [float(i+j)/float(i+j+k+l) if (i+j+k+l !=0) else 0 for i,j,k,l in zip(tp,tn,fp,fn)]
 				ACC_tmp[name] = Acc[dx] # Accuracy at [atEff]% efficiency
 			
-			if self._FoM == "AUC": return max(AUC_tmp.iteritems(), key=itemgetter(1))[0]
-			elif self._FoM == "OOP": return max(OOP_tmp.iteritems(), key=itemgetter(1))[0]
-			elif self._FoM == "PUR": return max(PUR_tmp.iteritems(), key=itemgetter(1))[0]
-			elif self._FoM == "ACC": return max(ACC_tmp.iteritems(), key=itemgetter(1))[0]
+		if self._FoM == "AUC": return max(AUC_tmp.iteritems(), key=itemgetter(1))[0]
+		elif self._FoM == "OOP": return max(OOP_tmp.iteritems(), key=itemgetter(1))[0]
+		elif self._FoM == "PUR": return max(PUR_tmp.iteritems(), key=itemgetter(1))[0]
+		elif self._FoM == "ACC": return max(ACC_tmp.iteritems(), key=itemgetter(1))[0]
 	
 	
 	def Fit(self,X,y):
@@ -333,14 +333,14 @@ class combClassifier:
 		inputtree.SetBranchStatus("*",1)
 		branch_list = inputtree.GetListOfBranches()
 		branch_name_list = [d.GetName() for d in branch_list]
-		if self._name in branch_name_list:
-			inputtree.SetBranchStatus(self._name,0)
+		if self._name+"_"+self._BestClfName in branch_name_list:
+			inputtree.SetBranchStatus(self._name+"_"+self._BestClfName,0)
 			
 		newfile = ROOT.TFile(Infile.split('.root')[0]+'_tmp.root','RECREATE')
 		newtree = inputtree.CloneTree(0)
 		
 		comb_branch_array = array('d',[0])
-		newtree.Branch(self._name, comb_branch_array, self._name + "/D")
+		newtree.Branch(self._name+"_"+self._BestClfName, comb_branch_array, self._name +"_"+self._BestClfName + "/D")
 		
 		X = rootnp.root2array(Infile,Intree,feature_array,None,0,None,None,False,'weight')
 		X = rootnp.rec2array(X)

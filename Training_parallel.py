@@ -36,7 +36,7 @@ else:
 ntypes = len([d for d in os.listdir(args.Typesdir) if not d.endswith('.pkl')])
 
 def proc_type(idx,ftype):
-	if not (ftype == "All"): return	
+	#if not (ftype == "All"): return	
 	typedir = args.Typesdir+ftype+"/"
 	log.info('************ Processing Type (%s/%s): %s %s %s ****************' % (str(idx+1),str(ntypes),Fore.GREEN,ftype,Fore.WHITE))
 	if args.verbose: log.info('Working in directory: %s' % typedir)
@@ -99,6 +99,7 @@ def proc_type(idx,ftype):
 def main():
 	
 	for idx, ftype in enumerate([d for d in os.listdir(args.Typesdir) if not d.endswith('.pkl')]):
+		#if ftype != "All": continue
 		proc_type(idx,ftype)
 	
 	# plot the correlation matrices between all the BEST classifiers for each type

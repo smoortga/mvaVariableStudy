@@ -7,6 +7,7 @@
 #
 
 from Helper import *
+from Class_CombMVA import *
 
 
 
@@ -48,18 +49,21 @@ Types = [d for d in os.listdir(args.Typesdir) if not d.endswith('.pkl')]
 clf_names = ['GBC','RF','SGD','NB','MLP']#'SVM','kNN'
 
 for idx,t in enumerate(Types):
-	#if idx < 3: continue
+	#if t != "All": continue
 	log.info('************ Processing Type (%s/%s): %s %s %s ****************' % (str(idx+1),str(len(Types)),Fore.GREEN,t,Fore.WHITE))
 	ty = t.replace("+","plus")
 	typ = ty.replace("-","minus")
+	typedir = args.Typesdir+t+"/"
+	#disc_array = []
+	#for clf in clf_names:
+	#	disc_array.append(typ+"_"+clf)
 	
-	disc_array = []
-	for clf in clf_names:
-		disc_array.append(typ+"_"+clf)
+	featurenames = pickle.load(open(typedir + "featurenames.pkl","r"))
+	featurenames = [f for f in featurenames if f != 'flavour']
 	
-	X_sig = rootnp.root2array(args.InputFile,args.InputTree,disc_array,signal_selection,0,None,args.pickEvery,False,'weight')
+	X_sig = rootnp.root2array(args.InputFile,args.InputTree,featurenames,signal_selection,0,None,args.pickEvery,False,'weight')
 	X_sig = rootnp.rec2array(X_sig)
-	X_bkg = rootnp.root2array(args.InputFile,args.InputTree,disc_array,bkg_selection,0,None,args.pickEvery,False,'weight')
+	X_bkg = rootnp.root2array(args.InputFile,args.InputTree,featurenames,bkg_selection,0,None,args.pickEvery,False,'weight')
 	X_bkg = rootnp.rec2array(X_bkg)
 	X = np.concatenate((X_sig,X_bkg))
 	y = np.concatenate((np.ones(len(X_sig)),np.zeros(len(X_bkg))))
@@ -75,21 +79,25 @@ for idx,t in enumerate(Types):
 	#
 	#***************************************************************************
 	
-	Classifiers = Optimize(typ+"_COMB",X[training_event==2],y[training_event==2],disc_array,signal_selection,bkg_selection,True,args.InputFile,Optmization_fraction = 0.2,train_test_splitting=0.5)
+	#Classifiers = Optimize(typ+"_COMB",X[training_event==2],y[training_event==2],disc_array,signal_selection,bkg_selection,True,args.InputFile,Optmization_fraction = 0.2,train_test_splitting=0.5)
+	
+	comb_clf = combClassifier(signal_selection,bkg_selection,name=typ+"_COMB_BEST")
+	comb_clf.Fit(X[training_event==1],y[training_event==1])
+	comb_clf.EvaluateTree(args.InputFile,Intree=args.InputTree,feature_array=featurenames)
 		
-	outdir = args.Typesdir+t+"/"
-	pickle.dump(Classifiers,open( outdir+"TrainingOutputs_CombinedMVA.pkl", "wb" ))
+	#outdir = args.Typesdir+t+"/"
+	#pickle.dump(Classifiers,open( outdir+"TrainingOutputs_CombinedMVA.pkl", "wb" ))
 	
 	
 	
-	best_clf_name,best_clf = BestClassifier(Classifiers,args.FoM,typ+"_COMB",disc_array,signal_selection,bkg_selection,True,args.InputFile)
-	best_clf_with_name = {}
-	best_clf_with_name['CombinedMVA']=(best_clf_name,best_clf)
-	pickle.dump( best_clf_with_name, open(  outdir+"BestClassifier_CombinedMVA.pkl", "wb" ) )
+	#best_clf_name,best_clf = BestClassifier(Classifiers,args.FoM,typ+"_COMB",disc_array,signal_selection,bkg_selection,True,args.InputFile)
+	#best_clf_with_name = {}
+	#best_clf_with_name['CombinedMVA']=(best_clf_name,best_clf)
+	#pickle.dump( best_clf_with_name, open(  outdir+"BestClassifier_CombinedMVA.pkl", "wb" ) )
 	
-	for clf_name,clf in Classifiers.iteritems():
-		DrawDiscrAndROCFromROOT(args.InputFile,args.InputTree,'/'.join(args.InputFile.split('/')[0:-1])+"/Types/"+typ+"/DiscriminantOverlayAndROC_"+typ+"_COMB_"+clf_name+args.OutputExt,typ+"_COMB_"+clf_name,typ+"_COMB_"+clf_name,signal_selection,bkg_selection)
-	DrawDiscrAndROCFromROOT(args.InputFile,args.InputTree,'/'.join(args.InputFile.split('/')[0:-1])+"/Types/DiscriminantOverlayAndROC_"+typ+"_COMB_BEST_"+best_clf_name+args.OutputExt,typ+"_COMB_BEST_"+best_clf_name,typ+"_COMB_BEST_"+best_clf_name,signal_selection,bkg_selection)
+	#for clf_name,clf in Classifiers.iteritems():
+	#	DrawDiscrAndROCFromROOT(args.InputFile,args.InputTree,'/'.join(args.InputFile.split('/')[0:-1])+"/Types/"+typ+"/DiscriminantOverlayAndROC_"+typ+"_COMB_"+clf_name+args.OutputExt,typ+"_COMB_"+clf_name,typ+"_COMB_"+clf_name,signal_selection,bkg_selection)
+	#DrawDiscrAndROCFromROOT(args.InputFile,args.InputTree,'/'.join(args.InputFile.split('/')[0:-1])+"/Types/DiscriminantOverlayAndROC_"+typ+"_COMB_BEST_"+best_clf_name+args.OutputExt,typ+"_COMB_BEST_"+best_clf_name,typ+"_COMB_BEST_"+best_clf_name,signal_selection,bkg_selection)
 	
 	
 	tmp = ROOT.TFile(args.InputFile)
@@ -102,7 +110,7 @@ for idx,t in enumerate(Types):
 			best_name_all = name		
 	compare_array = []
 	compare_array.append(best_name_all)
-	compare_array.append(typ+"_COMB_BEST_"+best_clf_name)
+	compare_array.append(typ+"_COMB_BEST_"+comb_clf.Get_Best_Classifier_Name())
 	DrawROCOverlaysFromROOT(args.InputFile,args.InputTree,'/'.join(args.InputFile.split('/')[0:-1])+"/Types/ROCOverlays_CombinedMVAGains_"+typ+args.OutputExt,compare_array,signal_selection,bkg_selection)
 
 	

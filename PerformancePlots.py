@@ -9,6 +9,7 @@
 import rootpy
 import os
 import numpy as np
+import root_numpy as rootnp
 from argparse import ArgumentParser
 from pylab import *
 log = rootpy.log["/PerformancePlots"]
@@ -21,13 +22,35 @@ import itertools
 import copy as cp
 import math
 from operator import itemgetter
+from Helper import *
 
 parser = ArgumentParser()
 
 parser.add_argument('--indir', default = os.getcwd()+'/Types/')
 parser.add_argument('--verbose', action='store_true')
+parser.add_argument('--signal', default='C', help='signal for training')
+parser.add_argument('--bkg', default='DUSG', help='background for training')
+parser.add_argument('--InputFile', default = os.getcwd()+'/DiscriminatorOutputs/discriminator_ntuple_scaled.root')
+parser.add_argument('--InputTree', default = 'tree')
+parser.add_argument('--pickEvery', type=int, default=2, help='pick one element every ...')
 
 args = parser.parse_args()
+
+
+signal_selection = ""
+bkg_selection = ""
+if args.signal == "B": signal_selection = "flavour == 5"
+elif args.signal == "C": signal_selection = "flavour == 4"
+elif args.signal == "DUSG": signal_selection = "flavour != 5 && flavour != 4"
+else: 
+	log.info('NO VALID SIGNAL, using B')
+	signal_selection = "flavour == 5"
+if args.bkg == "B": bkg_selection = "flavour == 5"
+elif args.bkg == "C": bkg_selection = "flavour == 4"
+elif args.bkg == "DUSG": bkg_selection = "flavour != 5 && flavour != 4"
+else: 
+	log.info('NO VALID bkg, using DUSG')
+	bkg_selection = "flavour != 5 && flavour != 4"
 
 
 
@@ -90,7 +113,7 @@ clf_names = []
 type_names = []
 
 dir_list = os.listdir(args.indir)
-dir_list.remove("All")
+#dir_list.remove("All")
 ntypes = len(dir_list)
 for idx, ftype in enumerate(dir_list):
 	type_names.append(ftype)
@@ -99,18 +122,32 @@ for idx, ftype in enumerate(dir_list):
 	if args.verbose: log.info('Working in directory: %s' % typedir)
 	Classifiers = pickle.load(open(typedir + "TrainingOutputs.pkl","r"))
 	
+	featurenames = pickle.load(open(typedir + "featurenames.pkl","r"))
+	featurenames = [f for f in featurenames if f != 'flavour']
+	X_sig = rootnp.root2array(args.InputFile,args.InputTree,featurenames,signal_selection+" && Training_Event == 0",0,None,args.pickEvery,False,'weight')
+	X_sig = rootnp.rec2array(X_sig)
+	X_bkg = rootnp.root2array(args.InputFile,args.InputTree,featurenames,bkg_selection+" && Training_Event == 0",0,None,args.pickEvery,False,'weight')
+	X_bkg = rootnp.rec2array(X_bkg)
+	X = np.concatenate((X_sig,X_bkg))
+	y = np.concatenate((np.ones(len(X_sig)),np.zeros(len(X_bkg))))
+	
 
 	AUC_tmp = []
 	OOP_tmp = []
 	PUR_tmp = []
 	ACC_tmp = []
 	for name, clf in Classifiers.items():
-		if idx == 0: clf_names.append(name)
-		y_true = clf[1]
-		disc = clf[2]
-		fpr = clf[3]
-		tpr = clf[4]
-		thres = clf[5]
+		log.info('             Processing classifier: %s %s %s' % (Fore.BLUE,name,Fore.WHITE))
+		if idx == 0: clf_names.append(name) 
+		#y_true = clf[1]
+		#disc = clf[2]
+		#fpr = clf[3]
+		#tpr = clf[4]
+		#thres = clf[5]
+		y_true = y
+		classifier = clf[0]
+		disc = classifier.predict_proba(X)[:,1]
+		fpr, tpr, thres = roc_curve(y_true, disc)
 		disc_s = disc[y_true == 1]
 		disc_b = disc[y_true == 0]
 		tp = [len(disc_s[disc_s>=t]) for t in thres]
@@ -144,7 +181,7 @@ for idx, ftype in enumerate(dir_list):
 		
 		
 		
-	AUC_scores.append(AUC_tmp)
+	AUC_scores.append([1-i for i in AUC_tmp])
 	OOP_scores.append(OOP_tmp)
 	PUR_scores.append(PUR_tmp)
 	ACC_scores.append(ACC_tmp)
